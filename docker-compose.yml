@@ -1,0 +1,151 @@
+services:
+  # PostgreSQL Database for Keycloak
+  keycloak-postgres:
+    image: postgres:15-alpine
+    container_name: keycloak-postgres
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak_password
+    volumes:
+      - keycloak_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - diksha-demo
+
+  # Keycloak 24 Identity Provider
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.5
+    container_name: keycloak
+    environment:
+      # Database Configuration
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak_password
+      
+      # Admin Credentials
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin_password
+      
+      # Hostname Configuration (for browser access)
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 8080
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_HTTP_RELATIVE_PATH: /
+      
+      # PROXY Configuration (for docker internal network)
+      KC_PROXY: edge
+      KC_PROXY_ADDRESS_FORWARDING: "true"
+    
+    command: start-dev --import-realm
+    
+    volumes:
+      # Import realm on startup
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm.json:ro
+      # Custom theme
+      - ./keycloak/themes/diksha-demo:/opt/keycloak/themes/diksha-demo:ro
+    
+    ports:
+      - "8080:8080"
+    
+    depends_on:
+      keycloak-postgres:
+        condition: service_healthy
+    
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3;grep 'HTTP/1.1 200' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    
+    networks:
+      - diksha-demo
+
+  # IAM Orchestrator Service (connects IAM User Service with Keycloak)
+  iam-orchestrator:
+    build:
+      context: ./iam-orchestrator
+      dockerfile: Dockerfile
+    container_name: iam-orchestrator
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      
+      # IAM User Service URL (assuming it's running on iam-service:3000)
+      IAM_USER_SERVICE_URL: http://iam-service:3000
+      
+      # Keycloak URLs
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: diksha-demo
+      KEYCLOAK_CLIENT_ID: iam-admin-client
+      KEYCLOAK_CLIENT_SECRET: iam-admin-client-secret
+      
+      # Frontend redirect URI
+      FRONTEND_REDIRECT_URI: http://localhost:5173/auth/callback
+      FRONTEND_BASE_URL: http://localhost:5173
+      
+      # Session/State Configuration
+      STATE_STORE_TTL: 600000  # 10 minutes in ms
+      
+      # CORS Configuration
+      CORS_ORIGIN: http://localhost:5173,http://localhost:8080
+    
+    ports:
+      - "4000:4000"
+    
+    depends_on:
+      - keycloak
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    
+    networks:
+      - diksha-demo
+    
+    # volumes for development (optional)
+    volumes:
+      - ./iam-orchestrator/src:/app/src
+
+  # Demo Frontend (React + Vite)
+  demo-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: demo-frontend
+    environment:
+      VITE_KEYCLOAK_URL: http://localhost:8080
+      VITE_KEYCLOAK_REALM: diksha-demo
+      VITE_KEYCLOAK_CLIENT_ID: diksha-portal
+      VITE_ORCHESTRATOR_URL: http://localhost:4000
+      VITE_FRONTEND_REDIRECT_URI: http://localhost:5173/auth/callback
+    
+    ports:
+      - "5173:5173"
+    
+    depends_on:
+      - iam-orchestrator
+    
+    networks:
+      - diksha-demo
+    
+    # volumes for development (optional)
+    volumes:
+      - ./frontend/src:/app/src
+
+networks:
+  diksha-demo:
+    driver: bridge
+
+volumes:
+  keycloak_postgres_data:

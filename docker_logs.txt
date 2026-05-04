@@ -1,0 +1,127 @@
+nohup: ignoring input
+ Network diksha-iam_diksha-demo  Creating
+ Network diksha-iam_diksha-demo  Created
+ Volume "diksha-iam_keycloak_postgres_data"  Creating
+ Volume "diksha-iam_keycloak_postgres_data"  Created
+ Container keycloak-postgres  Creating
+ Container keycloak-postgres  Created
+ Container keycloak  Creating
+ Container keycloak  Created
+ Container iam-orchestrator  Creating
+ Container iam-orchestrator  Created
+ Container demo-frontend  Creating
+ Container demo-frontend  Created
+Attaching to demo-frontend, iam-orchestrator, keycloak, keycloak-postgres
+keycloak-postgres  | The files belonging to this database system will be owned by user "postgres".
+keycloak-postgres  | This user must also own the server process.
+keycloak-postgres  | 
+keycloak-postgres  | The database cluster will be initialized with locale "en_US.utf8".
+keycloak-postgres  | The default database encoding has accordingly been set to "UTF8".
+keycloak-postgres  | The default text search configuration will be set to "english".
+keycloak-postgres  | 
+keycloak-postgres  | Data page checksums are disabled.
+keycloak-postgres  | 
+keycloak-postgres  | fixing permissions on existing directory /var/lib/postgresql/data ... ok
+keycloak-postgres  | creating subdirectories ... ok
+keycloak-postgres  | selecting dynamic shared memory implementation ... posix
+keycloak-postgres  | selecting default max_connections ... 100
+keycloak-postgres  | selecting default shared_buffers ... 128MB
+keycloak-postgres  | selecting default time zone ... UTC
+keycloak-postgres  | creating configuration files ... ok
+keycloak-postgres  | running bootstrap script ... ok
+keycloak-postgres  | sh: locale: not found
+keycloak-postgres  | 2026-05-04 18:08:30.730 UTC [36] WARNING:  no usable system locales were found
+keycloak-postgres  | performing post-bootstrap initialization ... ok
+keycloak-postgres  | initdb: warning: enabling "trust" authentication for local connections
+keycloak-postgres  | initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+keycloak-postgres  | syncing data to disk ... ok
+keycloak-postgres  | 
+keycloak-postgres  | 
+keycloak-postgres  | Success. You can now start the database server using:
+keycloak-postgres  | 
+keycloak-postgres  |     pg_ctl -D /var/lib/postgresql/data -l logfile start
+keycloak-postgres  | 
+keycloak-postgres  | waiting for server to start....2026-05-04 18:08:31.186 UTC [42] LOG:  starting PostgreSQL 15.17 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+keycloak-postgres  | 2026-05-04 18:08:31.188 UTC [42] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+keycloak-postgres  | 2026-05-04 18:08:31.194 UTC [45] LOG:  database system was shut down at 2026-05-04 18:08:31 UTC
+keycloak-postgres  | 2026-05-04 18:08:31.198 UTC [42] LOG:  database system is ready to accept connections
+keycloak-postgres  |  done
+keycloak-postgres  | server started
+keycloak-postgres  | CREATE DATABASE
+keycloak-postgres  | 
+keycloak-postgres  | 
+keycloak-postgres  | /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+keycloak-postgres  | 
+keycloak-postgres  | waiting for server to shut down....2026-05-04 18:08:31.327 UTC [42] LOG:  received fast shutdown request
+keycloak-postgres  | 2026-05-04 18:08:31.334 UTC [42] LOG:  aborting any active transactions
+keycloak-postgres  | 2026-05-04 18:08:31.336 UTC [42] LOG:  background worker "logical replication launcher" (PID 48) exited with exit code 1
+keycloak-postgres  | 2026-05-04 18:08:31.336 UTC [43] LOG:  shutting down
+keycloak-postgres  | 2026-05-04 18:08:31.338 UTC [43] LOG:  checkpoint starting: shutdown immediate
+keycloak-postgres  | 2026-05-04 18:08:31.400 UTC [43] LOG:  checkpoint complete: wrote 921 buffers (5.6%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.016 s, sync=0.037 s, total=0.065 s; sync files=301, longest=0.003 s, average=0.001 s; distance=4239 kB, estimate=4239 kB
+keycloak-postgres  | 2026-05-04 18:08:31.405 UTC [42] LOG:  database system is shut down
+keycloak-postgres  |  done
+keycloak-postgres  | server stopped
+keycloak-postgres  | 
+keycloak-postgres  | PostgreSQL init process complete; ready for start up.
+keycloak-postgres  | 
+keycloak-postgres  | 2026-05-04 18:08:31.450 UTC [1] LOG:  starting PostgreSQL 15.17 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+keycloak-postgres  | 2026-05-04 18:08:31.451 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+keycloak-postgres  | 2026-05-04 18:08:31.451 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+keycloak-postgres  | 2026-05-04 18:08:31.456 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+keycloak-postgres  | 2026-05-04 18:08:31.460 UTC [58] LOG:  database system was shut down at 2026-05-04 18:08:31 UTC
+keycloak-postgres  | 2026-05-04 18:08:31.465 UTC [1] LOG:  database system is ready to accept connections
+keycloak           | Updating the configuration and installing your custom providers, if any. Please wait.
+keycloak           | 2026-05-04 18:08:45,603 WARN  [org.key.qua.run.cli.Picocli] (main) The following used options or option values are DEPRECATED and will be removed in a future release:
+keycloak           | 	- proxy: Use proxy-headers.
+keycloak           | Consult the Release Notes for details.
+keycloak           | 2026-05-04 18:08:51,167 WARN  [io.qua.dep.ind.IndexWrapper] (build-25) Failed to index org.springframework.core.io.DefaultResourceLoader: Class does not exist in ClassLoader QuarkusClassLoader:Deployment Class Loader: PROD for keycloak@130a0f66
+keycloak           | 2026-05-04 18:08:51,168 WARN  [io.qua.dep.ind.IndexWrapper] (build-25) Failed to index org.springframework.core.io.ResourceLoader: Class does not exist in ClassLoader QuarkusClassLoader:Deployment Class Loader: PROD for keycloak@130a0f66
+keycloak           | 2026-05-04 18:08:51,173 WARN  [io.qua.dep.ind.IndexWrapper] (build-25) Failed to index org.apache.tools.ant.Task: Class does not exist in ClassLoader QuarkusClassLoader:Deployment Class Loader: PROD for keycloak@130a0f66
+keycloak           | 2026-05-04 18:08:51,202 WARN  [io.qua.dep.ind.IndexWrapper] (build-25) Failed to index org.springframework.core.io.Resource: Class does not exist in ClassLoader QuarkusClassLoader:Deployment Class Loader: PROD for keycloak@130a0f66
+keycloak           | 2026-05-04 18:08:51,222 WARN  [io.qua.dep.ind.IndexWrapper] (build-25) Failed to index jakarta.jms.XAConnection: Class does not exist in ClassLoader QuarkusClassLoader:Deployment Class Loader: PROD for keycloak@130a0f66
+keycloak           | 2026-05-04 18:08:51,223 WARN  [io.qua.dep.ind.IndexWrapper] (build-25) Failed to index jakarta.jms.XASession: Class does not exist in ClassLoader QuarkusClassLoader:Deployment Class Loader: PROD for keycloak@130a0f66
+keycloak           | 2026-05-04 18:08:51,223 WARN  [io.qua.dep.ind.IndexWrapper] (build-25) Failed to index jakarta.jms.XAConnectionFactory: Class does not exist in ClassLoader QuarkusClassLoader:Deployment Class Loader: PROD for keycloak@130a0f66
+keycloak           | 2026-05-04 18:08:51,225 WARN  [io.qua.dep.ind.IndexWrapper] (build-25) Failed to index jakarta.jms.Connection: Class does not exist in ClassLoader QuarkusClassLoader:Deployment Class Loader: PROD for keycloak@130a0f66
+keycloak           | 2026-05-04 18:08:51,237 WARN  [io.qua.dep.ind.IndexWrapper] (build-25) Failed to index org.apache.activemq.artemis.core.journal.RecordInfo: Class does not exist in ClassLoader QuarkusClassLoader:Deployment Class Loader: PROD for keycloak@130a0f66
+keycloak           | 2026-05-04 18:08:51,237 WARN  [io.qua.dep.ind.IndexWrapper] (build-25) Failed to index org.apache.activemq.artemis.core.journal.Journal: Class does not exist in ClassLoader QuarkusClassLoader:Deployment Class Loader: PROD for keycloak@130a0f66
+keycloak           | 2026-05-04 18:08:51,239 WARN  [io.qua.dep.ind.IndexWrapper] (build-25) Failed to index io.mashona.logwriting.ArrayStore: Class does not exist in ClassLoader QuarkusClassLoader:Deployment Class Loader: PROD for keycloak@130a0f66
+keycloak           | 2026-05-04 18:08:57,063 INFO  [io.qua.dep.QuarkusAugmentor] (main) Quarkus augmentation completed in 9962ms
+keycloak           | 2026-05-04 18:08:57,987 WARN  [org.keycloak.quarkus.runtime.cli.Picocli] (main) The following used options or option values are DEPRECATED and will be removed in a future release:
+keycloak           | 	- proxy: Use proxy-headers.
+keycloak           | Consult the Release Notes for details.
+keycloak           | 2026-05-04 18:08:58,662 INFO  [org.keycloak.quarkus.runtime.hostname.DefaultHostnameProvider] (main) Hostname settings: Base URL: <unset>, Hostname: localhost, Strict HTTPS: false, Path: <request>, Strict BackChannel: false, Admin URL: <unset>, Admin: <request>, Port: 8080, Proxied: true
+keycloak           | 2026-05-04 18:09:02,285 WARN  [io.quarkus.agroal.runtime.DataSources] (JPA Startup Thread) Datasource <default> enables XA but transaction recovery is not enabled. Please enable transaction recovery by setting quarkus.transaction-manager.enable-recovery=true, otherwise data may be lost if the application is terminated abruptly
+keycloak           | 2026-05-04 18:09:03,166 WARN  [org.infinispan.CONFIG] (keycloak-cache-init) ISPN000569: Unable to persist Infinispan internal caches as no global state enabled
+keycloak           | 2026-05-04 18:09:03,321 INFO  [org.infinispan.CONTAINER] (keycloak-cache-init) ISPN000556: Starting user marshaller 'org.infinispan.jboss.marshalling.core.JBossUserMarshaller'
+keycloak           | 2026-05-04 18:09:03,983 WARN  [io.quarkus.vertx.http.runtime.VertxHttpRecorder] (main) The X-Forwarded-* and Forwarded headers will be considered when determining the proxy address. This configuration can cause a security issue as clients can forge requests and send a forwarded header that is not overwritten by the proxy. Please consider use one of these headers just to forward the proxy address in requests.
+keycloak           | 2026-05-04 18:09:04,033 INFO  [org.keycloak.connections.infinispan.DefaultInfinispanConnectionProviderFactory] (main) Node name: node_9845, Site name: null
+keycloak           | 2026-05-04 18:09:04,043 INFO  [org.keycloak.broker.provider.AbstractIdentityProviderMapper] (main) Registering class org.keycloak.broker.provider.mappersync.ConfigSyncEventListener
+keycloak-postgres  | 2026-05-04 18:09:04.058 UTC [76] ERROR:  relation "migration_model" does not exist at character 25
+keycloak-postgres  | 2026-05-04 18:09:04.058 UTC [76] STATEMENT:  SELECT ID, VERSION FROM MIGRATION_MODEL ORDER BY UPDATE_TIME DESC
+keycloak-postgres  | 2026-05-04 18:09:05.127 UTC [76] ERROR:  relation "public.databasechangelog" does not exist at character 22
+keycloak-postgres  | 2026-05-04 18:09:05.127 UTC [76] STATEMENT:  SELECT COUNT(*) FROM public.databasechangelog
+keycloak-postgres  | 2026-05-04 18:09:05.382 UTC [85] ERROR:  relation "public.databasechangeloglock" does not exist at character 22
+keycloak-postgres  | 2026-05-04 18:09:05.382 UTC [85] STATEMENT:  SELECT COUNT(*) FROM public.databasechangeloglock
+keycloak-postgres  | 2026-05-04 18:09:05.443 UTC [76] ERROR:  relation "public.databasechangelog" does not exist at character 22
+keycloak-postgres  | 2026-05-04 18:09:05.443 UTC [76] STATEMENT:  SELECT COUNT(*) FROM public.databasechangelog
+keycloak           | 2026-05-04 18:09:05,446 INFO  [org.keycloak.quarkus.runtime.storage.legacy.liquibase.QuarkusJpaUpdaterProvider] (main) Initializing database schema. Using changelog META-INF/jpa-changelog-master.xml
+keycloak           | 
+keycloak           | UPDATE SUMMARY
+keycloak           | Run:                        124
+keycloak           | Previously run:               0
+keycloak           | Filtered out:                 0
+keycloak           | -------------------------------
+keycloak           | Total change sets:          124
+keycloak           | 
+keycloak           | 2026-05-04 18:09:10,435 INFO  [org.keycloak.services] (main) KC-SERVICES0050: Initializing master realm
+keycloak           | 2026-05-04 18:09:16,470 INFO  [org.keycloak.exportimport.singlefile.SingleFileImportProvider] (main) Full importing from file /opt/keycloak/bin/../data/import/realm.json
+keycloak           | 2026-05-04 18:09:19,231 INFO  [org.keycloak.exportimport.util.ImportUtils] (main) Realm 'diksha-demo' imported
+keycloak           | 2026-05-04 18:09:19,283 INFO  [org.keycloak.exportimport.dir.DirImportProvider] (main) Importing from directory /opt/keycloak/bin/../data/import
+keycloak           | 2026-05-04 18:09:19,284 INFO  [org.keycloak.services] (main) KC-SERVICES0030: Full model import requested. Strategy: IGNORE_EXISTING
+keycloak           | 2026-05-04 18:09:19,284 INFO  [org.keycloak.services] (main) KC-SERVICES0032: Import finished successfully
+keycloak           | 2026-05-04 18:09:19,774 INFO  [org.keycloak.services] (main) KC-SERVICES0009: Added user 'admin' to realm 'master'
+keycloak           | 2026-05-04 18:09:19,893 INFO  [io.quarkus] (main) Keycloak 24.0.5 on JVM (powered by Quarkus 3.8.4) started in 19.104s. Listening on: http://0.0.0.0:8080
+keycloak           | 2026-05-04 18:09:19,894 INFO  [io.quarkus] (main) Profile dev activated. 
+keycloak           | 2026-05-04 18:09:19,894 INFO  [io.quarkus] (main) Installed features: [agroal, cdi, hibernate-orm, jdbc-postgresql, keycloak, logging-gelf, narayana-jta, reactive-routes, resteasy-reactive, resteasy-reactive-jackson, smallrye-context-propagation, vertx]
+keycloak           | 2026-05-04 18:09:19,898 WARN  [org.keycloak.quarkus.runtime.KeycloakMain] (main) Running the server in development mode. DO NOT use this configuration in production.
+dependency failed to start: container keycloak is unhealthy
