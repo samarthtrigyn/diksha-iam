@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: iam-service
-    restart: unless-stopped
+    restart: no
     env_file:
       - .env
     ports:
