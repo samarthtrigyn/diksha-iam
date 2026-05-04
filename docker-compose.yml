@@ -143,6 +143,28 @@ services:
     volumes:
       - ./frontend/src:/app/src
 
+  # IAM User Service (Mock service for demonstration)
+  iam-service:
+    build:
+      context: ./iam-service
+      dockerfile: Dockerfile
+    container_name: iam-service
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+    
+    ports:
+      - "3000:3000"
+    
+    networks:
+      - diksha-demo
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 networks:
   diksha-demo:
     driver: bridge
