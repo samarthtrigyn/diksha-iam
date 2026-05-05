@@ -16,14 +16,23 @@ export default function CallbackPage() {
 
   const handleCallback = async () => {
     try {
-      const code = searchParams.get('code');
-      const state = searchParams.get('state');
+      const code          = searchParams.get('code');
+      const returnedState = searchParams.get('state');
+      const storedState   = sessionStorage.getItem('oauth_state');
 
       if (!code) {
         setError('No authorization code received');
         setLoading(false);
         return;
       }
+
+      // Validate state to prevent CSRF
+      if (storedState && returnedState && storedState !== returnedState) {
+        setError('State mismatch – possible CSRF attack. Please try logging in again.');
+        setLoading(false);
+        return;
+      }
+      sessionStorage.removeItem('oauth_state');
 
       // Get PKCE code verifier
       const codeVerifier = getPKCE();

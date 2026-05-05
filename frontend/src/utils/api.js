@@ -25,11 +25,29 @@ export function setAuthToken(token) {
  * POST /iam/login/start
  * Start login flow with email/phone
  */
-export async function postLoginStart(identifier) {
+export async function postLoginStart(identifier, { codeChallenge, redirectUri, clientId } = {}) {
   try {
-    const response = await apiClient.post('/iam/login/start', {
-      identifier
+    // Validate required parameters
+    if (!codeChallenge) {
+      console.error('postLoginStart: codeChallenge is required', { identifier, redirectUri, clientId });
+      throw new Error('codeChallenge is required');
+    }
+    
+    const body = {
+      identifier,
+      codeChallenge,
+      redirectUri,
+      clientId
+    };
+    
+    console.log('[API] POST /iam/login/start with body:', {
+      identifier,
+      codeChallenge: codeChallenge ? `${codeChallenge.substring(0, 20)}...` : null,
+      redirectUri,
+      clientId
     });
+    
+    const response = await apiClient.post('/iam/login/start', body);
     return response.data;
   } catch (error) {
     throw error.response?.data || { error: error.message };
@@ -42,15 +60,46 @@ export async function postLoginStart(identifier) {
  */
 export async function postVerifyOtp(txnId, identifier, otp, codeChallenge, redirectUri) {
   try {
-    const response = await apiClient.post('/iam/activation/verify-otp', {
+    const body = {
       txnId,
       identifier,
       otp,
       codeChallenge,
       redirectUri
+    };
+    
+    console.log('[API] POST /iam/activation/verify-otp with body:', {
+      txnId,
+      identifier: identifier?.substring(0, 5) + '***',
+      otp: '***',
+      codeChallenge: codeChallenge?.substring(0, 20) + '...',
+      redirectUri
     });
+    
+    const response = await apiClient.post('/iam/activation/verify-otp', body);
+    
+    console.log('[API] Raw response:', response);
+    console.log('[API] Response status:', response.status);
+    console.log('[API] Response headers:', response.headers);
+    console.log('[API] Response data:', response.data);
+    console.log('[API] Response data stringified:', JSON.stringify(response.data));
+    console.log('[API] Response data type:', typeof response.data);
+    console.log('[API] Response data keys:', Object.keys(response.data || {}));
+    
+    if (!response.data || typeof response.data !== 'object') {
+      console.error('[API] Invalid response format:', response.data);
+      throw new Error('Invalid response format from server');
+    }
+    
     return response.data;
   } catch (error) {
+    console.error('[API] Error in postVerifyOtp:');
+    console.error('[API]   Error object:', error);
+    console.error('[API]   Status:', error.response?.status);
+    console.error('[API]   Response data:', error.response?.data);
+    console.error('[API]   Response headers:', error.response?.headers);
+    console.error('[API]   Message:', error.message);
+    console.error('[API]   Stack:', error.stack);
     throw error.response?.data || { error: error.message };
   }
 }

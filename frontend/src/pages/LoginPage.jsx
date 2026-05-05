@@ -24,14 +24,25 @@ export default function LoginPage() {
 
       // Generate PKCE
       const { codeVerifier, codeChallenge } = await generatePKCE();
+      
+      if (!codeChallenge) {
+        setError('Failed to generate PKCE code challenge');
+        setLoading(false);
+        return;
+      }
+      
       storePKCE(codeVerifier);
       
       // Store identifier in sessionStorage for next step
       sessionStorage.setItem('login_identifier', identifier);
       sessionStorage.setItem('code_challenge', codeChallenge);
 
-      // Call IAM login start
-      const result = await postLoginStart(identifier);
+      // Call IAM login start — pass codeChallenge so server can build auth URL for active users
+      const result = await postLoginStart(identifier, {
+        codeChallenge,
+        redirectUri: `${window.location.origin}/auth/callback`,
+        clientId: 'diksha-portal'
+      });
 
       if (result.nextAction === 'USER_NOT_FOUND') {
         setError('User not found. Please check your email or phone number.');
@@ -45,7 +56,8 @@ export default function LoginPage() {
           }
         });
       } else if (result.nextAction === 'KEYCLOAK_LOGIN') {
-        // Already active user, redirect to Keycloak
+        // Active user – redirect to Keycloak PKCE auth
+        sessionStorage.setItem('oauth_state', result.state);
         window.location.href = result.authUrl;
       } else {
         setError('Unexpected response from server');

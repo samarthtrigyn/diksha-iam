@@ -42,22 +42,56 @@ export default function VerifyOtpPage() {
         return;
       }
 
+      console.log('[VerifyOTP] Submitting OTP verification', {
+        txnId,
+        identifier: identifier?.substring(0, 5) + '***',
+        codeChallenge: codeChallenge?.substring(0, 20) + '...',
+        redirectUri
+      });
+
       // Verify OTP
       const result = await postVerifyOtp(txnId, identifier, otp, codeChallenge, redirectUri);
 
+      console.log('[VerifyOTP] Full result object:', result);
+      console.log('[VerifyOTP] Result type:', typeof result);
+      console.log('[VerifyOTP] Result keys:', Object.keys(result || {}));
+      console.log('[VerifyOTP] Result.nextAction:', result?.nextAction);
+      console.log('[VerifyOTP] Result.authUrl:', result?.authUrl?.substring?.(0, 100) || 'undefined');
+
+      if (!result) {
+        console.error('[VerifyOTP] Result is null or undefined!');
+        setError('Server returned empty response');
+        return;
+      }
+
       if (result.nextAction === 'SET_PASSWORD') {
-        // New flow: redirect to custom password setup page
-        sessionStorage.setItem('setup_token', result.setupToken);
-        sessionStorage.setItem('pkce_challenge', codeChallenge);
-        navigate(`/auth/setup-password?token=${result.setupToken}`);
+        // The authUrl already contains a signed activation_token.
+        // Keycloak's custom authenticator will validate it, authenticate the user,
+        // and immediately show the Update Password page — no custom form needed.
+        console.log('[VerifyOTP] Redirecting to Keycloak with activation_token');
+        console.log('[VerifyOTP] authUrl is defined:', !!result.authUrl);
+        
+        if (!result.authUrl) {
+          console.error('[VerifyOTP] authUrl is undefined!');
+          setError('Failed to generate Keycloak authorization URL');
+          return;
+        }
+        
+        sessionStorage.setItem('oauth_state', result.state);
+        window.location.href = result.authUrl;
       } else if (result.nextAction === 'KEYCLOAK_LOGIN') {
-        // Redirect to Keycloak auth (PKCE flow)
+        // Normal active-user redirect
+        console.log('[VerifyOTP] Redirecting to Keycloak login');
+        sessionStorage.setItem('oauth_state', result.state);
         window.location.href = result.authUrl;
       } else {
-        setError('Unexpected response from server');
+        console.error('[VerifyOTP] Unexpected nextAction:', result.nextAction);
+        setError('Unexpected response from server: ' + (result.nextAction || 'none'));
       }
     } catch (err) {
-      console.error('OTP verification error:', err);
+      console.error('[VerifyOTP] Error during OTP verification:', err);
+      console.error('[VerifyOTP] Error type:', typeof err);
+      console.error('[VerifyOTP] Error keys:', Object.keys(err || {}));
       setError(err.error || err.message || 'OTP verification failed');
     } finally {
       setLoading(false);

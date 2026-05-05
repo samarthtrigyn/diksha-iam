@@ -2,6 +2,7 @@
   "realm": "diksha-demo",
   "enabled": true,
   "displayName": "DIKSHA Demo",
+
   "users": [
     {
       "username": "admin",
@@ -10,32 +11,28 @@
       "email": "admin@diksha.local",
       "enabled": true,
       "emailVerified": true,
-      "credentials": [
-        {
-          "type": "password",
-          "value": "admin_password"
-        }
-      ],
+      "credentials": [{ "type": "password", "value": "admin_password" }],
       "realmRoles": ["ADMIN"],
       "clientRoles": {}
+    },
+    {
+      "username": "service-account-iam-admin-client",
+      "enabled": true,
+      "serviceAccountClientId": "iam-admin-client",
+      "clientRoles": {
+        "realm-management": ["manage-users", "view-users"]
+      }
     }
   ],
+
   "roles": {
     "realm": [
-      {
-        "name": "ADMIN",
-        "description": "Administrator role"
-      },
-      {
-        "name": "LEARNER",
-        "description": "Learner role"
-      },
-      {
-        "name": "INSTRUCTOR",
-        "description": "Instructor role"
-      }
+      { "name": "ADMIN",      "description": "Administrator role" },
+      { "name": "LEARNER",    "description": "Learner role" },
+      { "name": "INSTRUCTOR", "description": "Instructor role" }
     ]
   },
+
   "clients": [
     {
       "clientId": "diksha-portal",
@@ -50,29 +47,18 @@
         "http://localhost:5173/auth/callback",
         "http://localhost:5173/*"
       ],
-      "webOrigins": [
-        "http://localhost:5173",
-        "+"
-      ],
+      "webOrigins": ["http://localhost:5173", "+"],
       "attributes": {
-        "oidc.max_refresh_token_reuse": "0",
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "http://localhost:5173/login"
       },
-      "defaultClientScopes": [
-        "web-origins",
-        "profile",
-        "email",
-        "roles"
-      ],
-      "optionalClientScopes": [
-        "offline_access"
-      ]
+      "defaultClientScopes": ["web-origins", "profile", "email", "roles"],
+      "optionalClientScopes": ["offline_access"]
     },
     {
       "clientId": "iam-admin-client",
       "name": "IAM Admin Client",
-      "description": "Service account for IAM Orchestrator to manage users",
+      "description": "Service account for IAM Orchestrator (client_credentials grant)",
       "enabled": true,
       "publicClient": false,
       "serviceAccountsEnabled": true,
@@ -80,12 +66,103 @@
       "secret": "iam-admin-client-secret",
       "redirectUris": [],
       "webOrigins": [],
-      "defaultClientScopes": [
-        "profile",
-        "email",
-        "roles"
+      "defaultClientScopes": ["profile", "email", "roles"]
+    }
+  ],
+
+  "authenticationFlows": [
+    {
+      "alias": "browser",
+      "description": "DIKSHA browser flow with activation token support",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-cookie",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 10,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "auth-spnego",
+          "authenticatorFlow": false,
+          "requirement": "DISABLED",
+          "priority": 20,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "identity-provider-redirector",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 25,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "diksha-activation-token",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 28,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "ALTERNATIVE",
+          "priority": 30,
+          "flowAlias": "browser forms",
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "browser forms",
+      "description": "Username, password and other auth forms",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "auth-username-password-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "CONDITIONAL",
+          "priority": 20,
+          "flowAlias": "Browser - Conditional OTP",
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "Browser - Conditional OTP",
+      "description": "Flow to determine if the OTP is required for the authentication",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "conditional-user-configured",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "auth-otp-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "userSetupAllowed": false
+        }
       ]
     }
-  ]
+  ],
+
+  "browserFlow": "browser"
 }
 

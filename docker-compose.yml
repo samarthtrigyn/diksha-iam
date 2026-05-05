@@ -19,9 +19,11 @@ services:
     networks:
       - diksha-demo
 
-  # Keycloak 24 Identity Provider
+  # Keycloak 24 Identity Provider (custom build includes activation-token SPI)
   keycloak:
-    image: quay.io/keycloak/keycloak:24.0.5
+    build:
+      context: ./keycloak
+      dockerfile: Dockerfile
     container_name: keycloak
     environment:
       # Database Configuration
@@ -44,14 +46,16 @@ services:
       # PROXY Configuration (for docker internal network)
       KC_PROXY: edge
       KC_PROXY_ADDRESS_FORWARDING: "true"
+
+      # Shared secret for signing/verifying activation tokens
+      # MUST match ACTIVATION_TOKEN_SECRET in iam-orchestrator
+      ACTIVATION_TOKEN_SECRET: "diksha-activation-secret-change-in-production"
     
     command: start-dev --import-realm
     
     volumes:
       # Import realm on startup
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm.json:ro
-      # Custom theme
-      - ./keycloak/themes/diksha-demo:/opt/keycloak/themes/diksha-demo:ro
     
     ports:
       - "8080:8080"
@@ -88,6 +92,9 @@ services:
       KEYCLOAK_CLIENT_ID: iam-admin-client
       KEYCLOAK_CLIENT_SECRET: iam-admin-client-secret
       
+      # Keycloak public URL (browser-visible, differs from internal http://keycloak:8080)
+      KEYCLOAK_PUBLIC_URL: http://localhost:8080
+
       # Frontend redirect URI
       FRONTEND_REDIRECT_URI: http://localhost:5173/auth/callback
       FRONTEND_BASE_URL: http://localhost:5173
@@ -98,12 +105,12 @@ services:
       # CORS Configuration
       CORS_ORIGIN: http://localhost:5173,http://localhost:8080
       
+      # Shared secret for signing activation tokens (must match Keycloak's ACTIVATION_TOKEN_SECRET)
+      ACTIVATION_TOKEN_SECRET: "diksha-activation-secret-change-in-production"
+
       # Mock OTP Configuration (set to 'false' to use real OTP service)
       USE_MOCK_OTP: "true"
       MOCK_OTP_CODE: "123456"
-      
-      # Keycloak Admin Credentials
-      KEYCLOAK_ADMIN_PASSWORD: admin_password
     
     ports:
       - "4000:4000"
