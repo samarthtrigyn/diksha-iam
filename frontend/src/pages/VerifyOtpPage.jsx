@@ -46,8 +46,13 @@ export default function VerifyOtpPage() {
       const result = await postVerifyOtp(txnId, identifier, otp, codeChallenge, redirectUri);
 
       if (result.nextAction === 'SET_PASSWORD') {
-        // Redirect to Keycloak for password setup
-        window.location.href = result.redirectUrl;
+        // New flow: redirect to custom password setup page
+        sessionStorage.setItem('setup_token', result.setupToken);
+        sessionStorage.setItem('pkce_challenge', codeChallenge);
+        navigate(`/auth/setup-password?token=${result.setupToken}`);
+      } else if (result.nextAction === 'KEYCLOAK_LOGIN') {
+        // Redirect to Keycloak auth (PKCE flow)
+        window.location.href = result.authUrl;
       } else {
         setError('Unexpected response from server');
       }
@@ -61,43 +66,57 @@ export default function VerifyOtpPage() {
 
   return (
     <div className="container">
-      <div className="card">
-        <div className="header">
-          <h1>Verify OTP</h1>
-          <p>Enter OTP sent to {maskedIdentifier || identifier}</p>
+      {/* Left Hero Panel */}
+      <div className="auth-left">
+        <div className="auth-left-content">
+          <div className="diksha-logo">📚</div>
+          <h2>Building Futures</h2>
+          <p>Join millions of students and teachers transforming education through technology and innovation</p>
         </div>
+      </div>
 
-        {error && <div className="error">{error}</div>}
-
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="otp">One-Time Password</label>
-            <input
-              id="otp"
-              type="text"
-              placeholder="000000"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              maxLength="6"
-              disabled={loading}
-            />
+      {/* Right Form Panel */}
+      <div className="auth-right">
+        <div className="card">
+          <div className="header">
+            <h1>Verify OTP</h1>
+            <p>Enter OTP sent to {maskedIdentifier || identifier}</p>
           </div>
 
-          <button type="submit" disabled={loading}>
-            {loading ? 'Verifying...' : 'Verify OTP'}
-          </button>
+          {error && <div className="error">{error}</div>}
 
-          <button 
-            type="button" 
-            onClick={() => navigate('/login')} 
-            style={{ marginTop: '10px', background: '#999' }}
-          >
-            Back to Login
-          </button>
-        </form>
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label htmlFor="otp">One-Time Password*</label>
+              <input
+                id="otp"
+                type="text"
+                placeholder="000000"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                maxLength="6"
+                disabled={loading}
+                autoFocus
+              />
+            </div>
 
-        <div className="text-sm mt-20 centered-text">
-          Demo OTP: <code>123456</code>
+            <button type="submit" disabled={loading}>
+              {loading ? 'Verifying...' : 'Verify OTP'}
+            </button>
+
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => navigate('/login')}
+              disabled={loading}
+            >
+              Back to Login
+            </button>
+
+            <div className="demo-otp">
+              Demo OTP: 123456
+            </div>
+          </form>
         </div>
       </div>
     </div>

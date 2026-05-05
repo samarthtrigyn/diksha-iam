@@ -97,6 +97,13 @@ services:
       
       # CORS Configuration
       CORS_ORIGIN: http://localhost:5173,http://localhost:8080
+      
+      # Mock OTP Configuration (set to 'false' to use real OTP service)
+      USE_MOCK_OTP: "true"
+      MOCK_OTP_CODE: "123456"
+      
+      # Keycloak Admin Credentials
+      KEYCLOAK_ADMIN_PASSWORD: admin_password
     
     ports:
       - "4000:4000"
@@ -149,6 +156,8 @@ services:
       context: ./iam-service
       dockerfile: Dockerfile
     container_name: iam-service
+    env_file:
+      - ./iam-service/.env
     environment:
       NODE_ENV: development
       PORT: 3000

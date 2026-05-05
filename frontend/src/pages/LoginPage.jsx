@@ -46,7 +46,7 @@ export default function LoginPage() {
         });
       } else if (result.nextAction === 'KEYCLOAK_LOGIN') {
         // Already active user, redirect to Keycloak
-        window.location.href = result.redirectUrl;
+        window.location.href = result.authUrl;
       } else {
         setError('Unexpected response from server');
       }
@@ -60,34 +60,98 @@ export default function LoginPage() {
 
   return (
     <div className="container">
-      <div className="card">
-        <div className="header">
-          <h1>DIKSHA IAM Demo</h1>
-          <p>Sign in to your account</p>
+      {/* Left Hero Panel */}
+      <div className="auth-left">
+        <div className="auth-left-content">
+          <div className="diksha-logo">📚</div>
+          <h2>Building Futures</h2>
+          <p>Join millions of students and teachers transforming education through technology and innovation</p>
         </div>
+      </div>
 
-        {error && <div className="error">{error}</div>}
-
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="identifier">Email or Phone</label>
-            <input
-              id="identifier"
-              type="text"
-              placeholder="your-email@example.com or 9876543210"
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              disabled={loading}
-            />
+      {/* Right Form Panel */}
+      <div className="auth-right">
+        <div className="card">
+          <div className="auth-tabs">
+            <div className="auth-tab active">Login</div>
+            <div className="auth-tab">Register</div>
           </div>
 
-          <button type="submit" disabled={loading}>
-            {loading ? 'Loading...' : 'Continue'}
-          </button>
-        </form>
+          <div className="header">
+            <h1>Login</h1>
+            <p>Enter Your Email ID/Mobile Number</p>
+          </div>
 
-        <div className="text-sm mt-20 centered-text">
-          Demo: Use <code>ratul003@example.com</code>
+          {error && <div className="error">{error}</div>}
+
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label htmlFor="identifier">Enter Your Email ID/Mobile Number*</label>
+              <input
+                id="identifier"
+                type="text"
+                placeholder="enter your email id/mobile number"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                disabled={loading}
+                autoFocus
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="password">Enter Your Password*</label>
+              <div className="form-group-wrapper">
+                <input
+                  id="password"
+                  type="password"
+                  placeholder="enter your password"
+                  disabled={loading}
+                />
+                <span className="password-toggle">👁️</span>
+              </div>
+            </div>
+
+            <div className="form-footer">
+              <label>
+                <input type="checkbox" /> Remember me
+              </label>
+              <a href="#forgot">Forgot Password?</a>
+            </div>
+
+            <button type="submit" disabled={loading}>
+              {loading ? 'Logging in...' : 'Login'}
+            </button>
+
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate('/login-otp');
+              }}
+              disabled={loading}
+            >
+              Login with OTP
+            </button>
+
+            <div className="social-login">
+              <div className="social-divider">Or login with</div>
+              <div className="social-buttons">
+                <button className="social-btn" type="button" title="Meghalayan">
+                  <span>🏛️<br/>Meghalayan</span>
+                </button>
+                <button className="social-btn" type="button" title="State System">
+                  <span>🏢<br/>State System</span>
+                </button>
+                <button className="social-btn" type="button" title="Google">
+                  <span>🔵<br/>Google</span>
+                </button>
+                <button className="social-btn" type="button" title="Apple">
+                  <span>🍎<br/>Apple</span>
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
       </div>
     </div>
