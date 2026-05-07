@@ -1,0 +1,161 @@
+{
+  "info": {
+    "name": "IAM Orchestrator API",
+    "description": "Postman collection for testing the IAM Orchestrator service endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "iam-orchestrator-collection"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Health Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Check if the IAM Orchestrator service is running"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Login Flow",
+      "item": [
+        {
+          "name": "Start Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"user@example.com\",\n  \"codeChallenge\": \"E9Mrozoa2owUednMGnzRVqAGEm42HO0Pw0scIQjlYu8\",\n  \"redirectUri\": \"http://localhost:5173/auth/callback\",\n  \"clientId\": \"diksha-portal\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/login/start",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "login", "start"]
+            },
+            "description": "Initiate login flow. Returns either:\n- `nextAction: 'KEYCLOAK_LOGIN'` for active users\n- `nextAction: 'VERIFY_OTP'` for non-active users\n\n**Parameters:**\n- `identifier`: Email or phone number (required)\n- `codeChallenge`: PKCE code challenge (optional, recommended for security)\n- `redirectUri`: Frontend redirect URI after OAuth flow\n- `clientId`: OAuth client ID"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "OTP Verification & Activation",
+      "item": [
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{txnId}}\",\n  \"identifier\": \"user@example.com\",\n  \"otp\": \"123456\",\n  \"codeChallenge\": \"E9Mrozoa2owUednMGnzRVqAGEm42HO0Pw0scIQjlYu8\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/activation/verify-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "activation", "verify-otp"]
+            },
+            "description": "Verify OTP and initiate password setup flow. This endpoint:\n1. Validates the OTP\n2. Creates/links a Keycloak user\n3. Updates migration status to 'PASSWORD_SETUP_INITIATED'\n4. Returns Keycloak authorization URL with activation token\n\n**Parameters:**\n- `txnId`: Transaction ID from `/iam/login/start` response (required)\n- `identifier`: Email or phone number (required)\n- `otp`: OTP code to verify (required)\n- `codeChallenge`: PKCE code challenge (required)\n\n**Mock OTP:** Use '123456' when `USE_MOCK_OTP=true`"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Token Exchange",
+      "item": [
+        {
+          "name": "Exchange Authorization Code for Tokens",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "code=YOUR_AUTH_CODE&codeVerifier=YOUR_CODE_VERIFIER&redirectUri=http://localhost:5173/auth/callback&clientId=diksha-portal"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/token-exchange",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "token-exchange"]
+            },
+            "description": "Exchange Keycloak authorization code for access and ID tokens. This completes the OAuth 2.0 PKCE flow.\n\n**Parameters:**\n- `code`: Authorization code from Keycloak (required)\n- `redirectUri`: Must match the redirect URI used in auth request (required)\n- `codeVerifier`: PKCE code verifier (optional but required if PKCE is used)\n- `clientId`: OAuth client ID (optional, defaults to 'diksha-portal')"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "User Profile",
+      "item": [
+        {
+          "name": "Get Current User (Me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/iam/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "me"]
+            },
+            "description": "Retrieve the current authenticated user's profile information.\n\n**Authentication:** Requires valid JWT access token in Authorization header\n\n**Response includes:**\n- `id`: Keycloak user ID (sub claim)\n- `email`: User email\n- `username`: Keycloak preferred_username\n- `name`: User full name\n- `roles`: Keycloak realm roles\n- `migrationStatus`: User migration status (ACTIVE, PASSWORD_SETUP_INITIATED, etc.)\n- `keycloakClaims`: Full JWT payload for debugging"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000",
+      "type": "string",
+      "description": "IAM Orchestrator base URL. Change to match your deployment."
+    },
+    {
+      "key": "txnId",
+      "value": "",
+      "type": "string",
+      "description": "Transaction ID returned from /iam/login/start. Copy the txnId value here after receiving OTP step."
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string",
+      "description": "Access token from /auth/token-exchange response. Use this for authenticated endpoints."
+    }
+  ]
+}

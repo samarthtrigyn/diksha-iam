@@ -155,7 +155,8 @@ services:
     
     # volumes for development (optional)
     volumes:
-      - ./frontend/src:/app/src
+      - ./frontend:/app
+      - /app/node_modules
 
   # IAM User Service (Mock service for demonstration)
   iam-service:

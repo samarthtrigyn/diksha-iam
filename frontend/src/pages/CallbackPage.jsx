@@ -17,18 +17,32 @@ export default function CallbackPage() {
   const handleCallback = async () => {
     try {
       const code          = searchParams.get('code');
+      const errorParam    = searchParams.get('error');
       const returnedState = searchParams.get('state');
       const storedState   = sessionStorage.getItem('oauth_state');
 
+      console.log('[Callback] URL params:', { code: code?.substring(0, 20) + '...', errorParam, returnedState, storedState });
+      console.log('[Callback] sessionStorage keys:', Object.keys(sessionStorage));
+
+      // Handle Keycloak error redirect
+      if (errorParam) {
+        const errorDesc = searchParams.get('error_description') || errorParam;
+        console.error('[Callback] Keycloak returned error:', errorParam, errorDesc);
+        setError(`Authentication error: ${errorDesc}`);
+        setLoading(false);
+        return;
+      }
+
       if (!code) {
-        setError('No authorization code received');
+        setError('No authorization code received from Keycloak');
         setLoading(false);
         return;
       }
 
       // Validate state to prevent CSRF
       if (storedState && returnedState && storedState !== returnedState) {
-        setError('State mismatch – possible CSRF attack. Please try logging in again.');
+        console.error('[Callback] State mismatch:', { storedState, returnedState });
+        setError('State mismatch – please try logging in again.');
         setLoading(false);
         return;
       }
@@ -36,8 +50,9 @@ export default function CallbackPage() {
 
       // Get PKCE code verifier
       const codeVerifier = getPKCE();
+      console.log('[Callback] codeVerifier present:', !!codeVerifier);
       if (!codeVerifier) {
-        setError('PKCE code verifier not found. Please start over.');
+        setError('Session expired (PKCE verifier missing). Please start over.');
         setLoading(false);
         return;
       }
@@ -47,10 +62,13 @@ export default function CallbackPage() {
       const redirectUri = `${window.location.origin}/auth/callback`;
 
       // Exchange code for token
+      console.log('[Callback] Exchanging code for token...');
       const tokenData = await exchangeCodeForToken(code, codeVerifier, clientId, redirectUri);
+      console.log('[Callback] Token exchange result keys:', Object.keys(tokenData || {}));
 
       if (!tokenData.access_token) {
-        setError('Failed to get access token');
+        console.error('[Callback] No access_token in response:', tokenData);
+        setError('Failed to get access token: ' + JSON.stringify(tokenData));
         setLoading(false);
         return;
       }
@@ -71,8 +89,10 @@ export default function CallbackPage() {
       clearPKCE();
 
       // Fetch user profile from IAM
+      console.log('[Callback] Fetching user profile...');
       try {
         const userProfile = await getMe();
+        console.log('[Callback] User profile:', userProfile);
         sessionStorage.setItem('user_profile', JSON.stringify(userProfile));
         
         // Decode and store the access token for display
