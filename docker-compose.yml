@@ -125,6 +125,11 @@ services:
       # Shared secret for signing activation tokens (must match Keycloak's ACTIVATION_TOKEN_SECRET)
       ACTIVATION_TOKEN_SECRET: "diksha-activation-secret-change-in-production"
 
+      # Google OAuth Configuration (REQUIRED for Google SSO)
+      GOOGLE_CLIENT_ID: "239632573042-k9ncnvvm13qgtrk5d33r822nahkpspgb.apps.googleusercontent.com"
+      GOOGLE_CLIENT_SECRET: "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"
+      GOOGLE_JWKS_URL: "https://www.googleapis.com/oauth2/v1/certs"
+
       # Mock OTP Configuration (set to 'false' to use real OTP service)
       USE_MOCK_OTP: "true"
       MOCK_OTP_CODE: "123456"

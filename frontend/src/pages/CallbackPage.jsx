@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { postAuthCallback, setAuthToken } from '../utils/api';
+import { postAuthCallback, postSsoCallback, setAuthToken } from '../utils/api';
 
 export default function CallbackPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [conflict, setConflict] = useState(null);
   const callbackFired = useRef(false);
 
   useEffect(() => {
@@ -17,24 +18,62 @@ export default function CallbackPage() {
 
   const handleCallback = async () => {
     try {
+      const ssoSession    = searchParams.get('sso_session');
       const code          = searchParams.get('code');
       const errorParam    = searchParams.get('error');
       const returnedState = searchParams.get('state');
       const storedState   = sessionStorage.getItem('oauth_state');
+      const ssoProvider   = sessionStorage.getItem('sso_provider');
 
-      console.log('[Callback] URL params:', { code: code?.substring(0, 20) + '...', errorParam, returnedState, storedState });
+      // Handle SSO session redirect from orchestrator (Google/State SSO)
+      if (ssoSession) {
+        console.log('[Callback] Received SSO session from orchestrator redirect');
+        try {
+          const sessionContext = JSON.parse(atob(ssoSession.replace(/-/g, '+').replace(/_/g, '/')));
+          console.log('[Callback] SSO session context:', sessionContext);
 
-      // Handle Keycloak error redirect
+          sessionStorage.removeItem('oauth_state');
+          sessionStorage.removeItem('sso_provider');
+
+          if (sessionContext.flow === 'AUTHENTICATED') {
+            const tokenData = sessionContext.tokens || {};
+            sessionStorage.setItem('access_token', tokenData.accessToken || '');
+            if (tokenData.refreshToken) sessionStorage.setItem('refresh_token', tokenData.refreshToken);
+            if (tokenData.idToken) sessionStorage.setItem('id_token', tokenData.idToken);
+            sessionStorage.setItem('user_profile', JSON.stringify(sessionContext.user));
+            sessionStorage.setItem('token_decoded', JSON.stringify(sessionContext.user));
+            if (tokenData.accessToken) setAuthToken(tokenData.accessToken);
+
+            console.log('[Callback] SSO authentication successful, redirecting to dashboard');
+            navigate('/dashboard');
+          } else if (sessionContext.flow === 'CONFLICT_RESOLUTION_REQUIRED') {
+            setConflict(sessionContext.conflict);
+            setLoading(false);
+          } else {
+            setError('Unexpected SSO flow: ' + sessionContext.flow);
+            setLoading(false);
+          }
+        } catch (parseErr) {
+          console.error('[Callback] Failed to parse SSO session:', parseErr);
+          setError('Failed to process SSO response');
+          setLoading(false);
+        }
+        return;
+      }
+
+      console.log('[Callback] URL params:', { code: code?.substring(0, 20) + '...', errorParam, returnedState, storedState, ssoProvider });
+
+      // Handle provider error redirect
       if (errorParam) {
         const errorDesc = searchParams.get('error_description') || errorParam;
-        console.error('[Callback] Keycloak returned error:', errorParam, errorDesc);
+        console.error('[Callback] Provider returned error:', errorParam, errorDesc);
         setError(`Authentication error: ${errorDesc}`);
         setLoading(false);
         return;
       }
 
       if (!code) {
-        setError('No authorization code received from Keycloak');
+        setError('No authorization code received from provider');
         setLoading(false);
         return;
       }
@@ -54,10 +93,24 @@ export default function CallbackPage() {
         return;
       }
 
-      // Call IAM orchestrator callback endpoint
-      // The orchestrator handles code exchange with Keycloak using server-side PKCE
-      console.log('[Callback] Calling IAM orchestrator callback endpoint...');
-      const sessionContext = await postAuthCallback(code, returnedState);
+      // Route: Keycloak callback (password/OTP flows)
+      console.log('[Callback] Handling Keycloak callback');
+      await handleKeycloakCallback(code, returnedState);
+    } catch (err) {
+      console.error('[Callback] Error:', err);
+      setError(err.error || err.message || 'Authentication failed');
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Handle Keycloak OAuth2 callback
+   * Exchanges code for tokens with the orchestrator
+   */
+  const handleKeycloakCallback = async (code, state) => {
+    try {
+      console.log('[Callback] Calling IAM orchestrator Keycloak callback endpoint...');
+      const sessionContext = await postAuthCallback(code, state);
       console.log('[Callback] Received session context:', sessionContext);
 
       if (!sessionContext) {
@@ -85,17 +138,74 @@ export default function CallbackPage() {
 
       // Store user profile
       sessionStorage.setItem('user_profile', JSON.stringify(sessionContext.user));
+      sessionStorage.setItem('token_decoded', JSON.stringify(sessionContext.user));
 
       // Set auth token for API calls
       setAuthToken(tokenData.accessToken);
 
-      console.log('[Callback] Authentication successful, redirecting to dashboard');
-      // Redirect to dashboard
+      console.log('[Callback] Keycloak authentication successful, redirecting to dashboard');
       navigate('/dashboard');
     } catch (err) {
-      console.error('[Callback] Error:', err);
-      setError(err.error || err.message || 'Authentication failed');
-      setLoading(false);
+      throw err;
+    }
+  };
+
+  /**
+   * Handle SSO provider callback (Google, State SSO, etc.)
+   * Exchanges code for session with user resolution
+   */
+  const handleSsoCallback = async (provider, code, state) => {
+    try {
+      console.log(`[Callback] Calling IAM orchestrator SSO callback for ${provider}...`);
+      const result = await postSsoCallback(provider, code, state);
+      console.log('[Callback] Received SSO result:', { flow: result.flow, action: result.ssoAction });
+
+      if (result.flow === 'CONFLICT_RESOLUTION_REQUIRED') {
+        // Unverified email/phone conflict – show conflict resolution UI
+        console.warn('[Callback] SSO conflict detected:', result.conflict);
+        setConflict({
+          provider: result.ssoProvider,
+          ...result.conflict
+        });
+        setLoading(false);
+        return;
+      }
+
+      if (result.flow !== 'AUTHENTICATED') {
+        setError(`Unexpected SSO flow: ${result.flow}`);
+        setLoading(false);
+        return;
+      }
+
+      // SSO authentication successful
+      const tokenData = result.tokens;
+      if (!tokenData || !tokenData.accessToken) {
+        console.error('[Callback] No access token in SSO response:', result);
+        setError('Failed to get access token from SSO');
+        setLoading(false);
+        return;
+      }
+
+      // Store tokens in sessionStorage (same format as Keycloak)
+      sessionStorage.setItem('access_token', tokenData.accessToken);
+      if (tokenData.refreshToken) {
+        sessionStorage.setItem('refresh_token', tokenData.refreshToken);
+      }
+      if (tokenData.idToken) {
+        sessionStorage.setItem('id_token', tokenData.idToken);
+      }
+
+      // Store user profile
+      sessionStorage.setItem('user_profile', JSON.stringify(result.user));
+      sessionStorage.setItem('token_decoded', JSON.stringify(result.user));
+
+      // Set auth token for API calls
+      setAuthToken(tokenData.accessToken);
+
+      console.log(`[Callback] SSO authentication successful (${result.ssoAction}), redirecting to dashboard`);
+      navigate('/dashboard');
+    } catch (err) {
+      throw err;
     }
   };
 
@@ -111,6 +221,34 @@ export default function CallbackPage() {
             <div className="spinner"></div>
             <p>Completing sign-in...</p>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (conflict) {
+    return (
+      <div className="container">
+        <div className="card">
+          <div className="header">
+            <h1>Account Conflict</h1>
+            <p>Resolve account linking</p>
+          </div>
+          <div className="error">
+            <p><strong>{conflict.message}</strong></p>
+            <p>Email: {conflict.requestedEmail || conflict.requestedPhone}</p>
+            <p>Conflicting accounts:</p>
+            <ul>
+              {conflict.existingUserIds && conflict.existingUserIds.map((userId, idx) => (
+                <li key={userId}>{conflict.existingUsernames?.[idx] || userId}</li>
+              ))}
+            </ul>
+          </div>
+          <p style={{ marginTop: '20px', fontSize: '14px', color: '#666' }}>
+            Cannot auto-link your {conflict.reason.includes('email') ? 'email' : 'phone number'} because it's already associated with an account.
+            Please contact support for account linking assistance.
+          </p>
+          <button onClick={() => navigate('/login')}>Back to Login</button>
         </div>
       </div>
     );

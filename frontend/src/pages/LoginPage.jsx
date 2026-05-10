@@ -2,12 +2,81 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { postLoginStart, setAuthToken } from '../utils/api';
 
+const ORCHESTRATOR_URL = import.meta.env.VITE_ORCHESTRATOR_URL || 'http://localhost:4000';
+
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  /**
+   * Initiate Google SSO login
+   */
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+      console.log('[LoginPage] Initiating Google SSO login...');
+      
+      const response = await fetch(`${ORCHESTRATOR_URL}/iam/sso/google/login`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to initiate SSO: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('[LoginPage] Got auth URL from orchestrator');
+
+      // Store state in sessionStorage for validation on callback
+      sessionStorage.setItem('oauth_state', data.state);
+      sessionStorage.setItem('sso_provider', 'google');
+
+      // Redirect to Google OAuth
+      window.location.href = data.authUrl;
+    } catch (err) {
+      console.error('[LoginPage] SSO login error:', err);
+      setError(err.message || 'Failed to initiate Google login');
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Initiate State SSO login (Meghalayan, Karnataka, etc.)
+   */
+  const handleStateSsoLogin = async (stateCode) => {
+    try {
+      setLoading(true);
+      console.log(`[LoginPage] Initiating ${stateCode} SSO login...`);
+
+      const provider = `state_${stateCode}`;
+      const response = await fetch(`${ORCHESTRATOR_URL}/iam/sso/${provider}/login`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to initiate SSO: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log(`[LoginPage] Got auth URL from orchestrator for ${stateCode}`);
+
+      // Store state in sessionStorage for validation on callback
+      sessionStorage.setItem('oauth_state', data.state);
+      sessionStorage.setItem('sso_provider', provider);
+
+      // Redirect to State SSO provider
+      window.location.href = data.authUrl;
+    } catch (err) {
+      console.error('[LoginPage] SSO login error:', err);
+      setError(err.message || `Failed to initiate ${stateCode} login`);
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -142,16 +211,39 @@ export default function LoginPage() {
             <div className="social-login">
               <div className="social-divider">Or login with</div>
               <div className="social-buttons">
-                <button className="social-btn" type="button" title="Meghalayan">
+                <button
+                  className="social-btn"
+                  type="button"
+                  title="Meghalayan SSO"
+                  onClick={() => handleStateSsoLogin('meghalaya')}
+                  disabled={loading}
+                >
                   <span>🏛️<br/>Meghalayan</span>
                 </button>
-                <button className="social-btn" type="button" title="State System">
+                <button
+                  className="social-btn"
+                  type="button"
+                  title="State System"
+                  onClick={() => handleStateSsoLogin('state')}
+                  disabled={loading}
+                >
                   <span>🏢<br/>State System</span>
                 </button>
-                <button className="social-btn" type="button" title="Google">
+                <button
+                  className="social-btn"
+                  type="button"
+                  title="Google"
+                  onClick={handleGoogleLogin}
+                  disabled={loading}
+                >
                   <span>🔵<br/>Google</span>
                 </button>
-                <button className="social-btn" type="button" title="Apple">
+                <button
+                  className="social-btn"
+                  type="button"
+                  title="Coming soon"
+                  disabled={true}
+                >
                   <span>🍎<br/>Apple</span>
                 </button>
               </div>

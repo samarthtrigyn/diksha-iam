@@ -489,6 +489,194 @@ async function softDeleteUser(id) {
   return { userId: id };
 }
 
+// SSO External Identity Functions
+const EXTERNAL_ID_LOOKUP_QUERY = `
+  SELECT userid
+  FROM user_external_identity_lookup_for_testing
+  WHERE provider = ? AND idtype = ? AND externalid = ?
+`;
+
+const EXTERNAL_ID_CHECK_QUERY = `
+  SELECT userid
+  FROM usr_external_identity
+  WHERE userid = ? AND provider = ? AND idtype = ?
+  LIMIT 1
+`;
+
+const EXTERNAL_ID_INSERT_QUERY = `
+  INSERT INTO usr_external_identity (userid, idtype, provider, externalid, originalidtype, originalprovider, originalexternalid)
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+`;
+
+const EXTERNAL_ID_LOOKUP_INSERT_QUERY = `
+  INSERT INTO user_external_identity_lookup_for_testing (provider, idtype, externalid, userid)
+  VALUES (?, ?, ?, ?)
+`;
+
+/**
+ * Resolve user by external identity (provider + idtype + externalid)
+ * Returns user if external identity already mapped, null otherwise
+ */
+async function resolveUserByExternalIdentity(provider, idtype, externalid) {
+  console.info(`[sso] Resolving user by external identity: ${provider}/${idtype}/${externalid}`);
+
+  const result = await execute(EXTERNAL_ID_LOOKUP_QUERY, [provider, idtype, externalid]);
+  if (result.rows.length === 0) {
+    console.info(`[sso] No user found for ${provider}/${idtype}/${externalid}`);
+    return null;
+  }
+
+  const userId = result.rows[0].userid;
+  const user = await fetchUserById(userId);
+  if (!user || user.isdeleted === true) {
+    return null;
+  }
+
+  console.info(`[sso] Found user: ${userId}`);
+  return user;
+}
+
+/**
+ * Link external identity to existing user
+ * Inserts into usr_external_identity and user_external_identity_lookup_for_testing
+ * Throws error if already linked
+ */
+async function linkExternalIdentity(userId, externalIdentity) {
+  const { provider, idtype, externalid, originalProvider, originalIdtype, originalExternalid } = externalIdentity;
+
+  console.info(`[sso] Linking external identity to user ${userId}: ${provider}/${idtype}`);
+
+  // Check for duplicate
+  const checkResult = await execute(EXTERNAL_ID_CHECK_QUERY, [userId, provider, idtype]);
+  if (checkResult.rows.length > 0) {
+    throw new HttpError(409, 'External identity already linked to this user', {
+      errorCode: 409,
+      error: 'Conflict',
+    });
+  }
+
+  // Insert into usr_external_identity
+  await execute(EXTERNAL_ID_INSERT_QUERY, [
+    userId,
+    idtype,
+    provider,
+    externalid,
+    originalIdtype || null,
+    originalProvider || null,
+    originalExternalid || null,
+  ]);
+
+  // Insert into user_external_identity_lookup_for_testing (reverse index)
+  await execute(EXTERNAL_ID_LOOKUP_INSERT_QUERY, [provider, idtype, externalid, userId]);
+
+  console.info(`[sso] External identity linked successfully`);
+}
+
+/**
+ * Resolve or create user from SSO provider
+ * Returns: {user, action: 'EXISTING'|'LINKED'|'CREATED'|'CONFLICT', conflict?}
+ */
+async function resolveSsoUser(ssoUser) {
+  const { provider, idtype, externalid, email, emailVerified, phone, phoneVerified, firstname, lastname } = ssoUser;
+
+  console.info(`[sso] Resolving SSO user: ${provider}/${externalid}`);
+
+  // STEP 1: Check if external identity already mapped
+  const existingUser = await resolveUserByExternalIdentity(provider, idtype, externalid);
+  if (existingUser) {
+    console.info(`[sso] User already exists with this external identity: ${existingUser.id}`);
+    return { user: existingUser, action: 'EXISTING' };
+  }
+
+  // STEP 2: Try safe auto-linking with verified email
+  if (emailVerified && isNonEmptyString(email)) {
+    try {
+      const userByEmail = await getUser({ email });
+      if (userByEmail) {
+        console.info(`[sso] Found existing user by verified email, linking...`);
+        await linkExternalIdentity(userByEmail.id, { provider, idtype, externalid });
+        return { user: userByEmail, action: 'LINKED', linkedVia: 'email' };
+      }
+    } catch (err) {
+      if (!(err instanceof HttpError && err.statusCode === 404)) throw err;
+    }
+  }
+
+  // STEP 3: Try safe auto-linking with verified phone
+  if (phoneVerified && isNonEmptyString(phone)) {
+    try {
+      const userByPhone = await getUser({ phone });
+      if (userByPhone) {
+        console.info(`[sso] Found existing user by verified phone, linking...`);
+        await linkExternalIdentity(userByPhone.id, { provider, idtype, externalid });
+        return { user: userByPhone, action: 'LINKED', linkedVia: 'phone' };
+      }
+    } catch (err) {
+      if (!(err instanceof HttpError && err.statusCode === 404)) throw err;
+    }
+  }
+
+  // STEP 4: Check for unverified email conflicts
+  if (isNonEmptyString(email) && !emailVerified) {
+    try {
+      const userByEmail = await getUser({ email });
+      if (userByEmail) {
+        const username = userByEmail.username ? decryptStoredField(userByEmail.username, 'username') : 'unknown';
+        return {
+          action: 'CONFLICT',
+          conflict: {
+            reason: 'unverified_email_conflict',
+            existingUserIds: [userByEmail.id],
+            existingUsernames: [username],
+            requestedEmail: email,
+            message: 'Cannot auto-link unverified email. User account exists with this email.',
+          },
+        };
+      }
+    } catch (err) {
+      if (!(err instanceof HttpError && err.statusCode === 404)) throw err;
+    }
+  }
+
+  // STEP 5: Check for unverified phone conflicts
+  if (isNonEmptyString(phone) && !phoneVerified) {
+    try {
+      const userByPhone = await getUser({ phone });
+      if (userByPhone) {
+        const username = userByPhone.username ? decryptStoredField(userByPhone.username, 'username') : 'unknown';
+        return {
+          action: 'CONFLICT',
+          conflict: {
+            reason: 'unverified_phone_conflict',
+            existingUserIds: [userByPhone.id],
+            existingUsernames: [username],
+            requestedPhone: phone,
+            message: 'Cannot auto-link unverified phone. User account exists with this phone.',
+          },
+        };
+      }
+    } catch (err) {
+      if (!(err instanceof HttpError && err.statusCode === 404)) throw err;
+    }
+  }
+
+  // STEP 6: Create new user
+  console.info(`[sso] Creating new user from SSO`);
+  const newUser = await createUser({
+    firstname: firstname || 'SSO',
+    lastname: lastname || 'User',
+    email: emailVerified ? email : null,
+    phone: phoneVerified ? phone : null,
+    dob: '1990-01-01', // Default for SSO
+    status: 1, // Active
+  });
+
+  const createdUser = await fetchUserById(newUser.userId);
+  await linkExternalIdentity(createdUser.id, { provider, idtype, externalid });
+
+  return { user: createdUser, action: 'CREATED' };
+}
+
 module.exports = {
   createUser,
   formatUserForResponse,
@@ -497,4 +685,7 @@ module.exports = {
   parseBooleanQueryFlag,
   softDeleteUser,
   updateUser,
+  resolveUserByExternalIdentity,
+  linkExternalIdentity,
+  resolveSsoUser,
 };

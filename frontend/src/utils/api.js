@@ -206,4 +206,32 @@ export async function postLogout(refreshToken, iamUserId) {
   }
 }
 
+/**
+ * GET /iam/sso/:provider/callback
+ * Handle SSO provider callback (Google, State SSO, etc.)
+ * Called after user authenticates with SSO provider and is redirected back
+ */
+export async function postSsoCallback(provider, code, state) {
+  try {
+    // Validate required parameters
+    if (!provider || !code || !state) {
+      console.error('postSsoCallback: provider, code, and state are required');
+      throw new Error('Missing required SSO callback parameters');
+    }
+
+    console.log(`[API] GET /iam/sso/${provider}/callback with code and state`);
+
+    const response = await apiClient.get(`/iam/sso/${provider}/callback`, {
+      params: { code, state }
+    });
+
+    console.log('[API] SSO callback response:', { flow: response.data.flow, ssoAction: response.data.ssoAction });
+
+    return response.data;
+  } catch (error) {
+    console.error('[API] Error in postSsoCallback:', error.message);
+    throw error.response?.data || { error: error.message };
+  }
+}
+
 export default apiClient;
