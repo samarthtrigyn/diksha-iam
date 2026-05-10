@@ -73,6 +73,23 @@ services:
     networks:
       - diksha-demo
 
+  # Redis Cache (for session/migration store)
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    command: redis-server --appendonly yes --requirepass ""
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - diksha-demo
+
   # IAM Orchestrator Service (connects IAM User Service with Keycloak)
   iam-orchestrator:
     build:
@@ -111,12 +128,16 @@ services:
       # Mock OTP Configuration (set to 'false' to use real OTP service)
       USE_MOCK_OTP: "true"
       MOCK_OTP_CODE: "123456"
+
+      # Redis Configuration
+      REDIS_URL: redis://redis:6379
     
     ports:
       - "4000:4000"
     
     depends_on:
       - keycloak
+      - redis
     
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
@@ -188,3 +209,4 @@ networks:
 
 volumes:
   keycloak_postgres_data:
+  redis_data:

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { generatePKCE, storePKCE } from '../utils/pkce';
-import { postLoginStart } from '../utils/api';
+import { postLoginStart, setAuthToken } from '../utils/api';
 
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -17,37 +17,25 @@ export default function LoginPage() {
     try {
       // Validate input
       if (!identifier.trim()) {
-        setError('Please enter email or phone number');
+        setError('Please enter email, phone, or username');
         setLoading(false);
         return;
       }
 
-      // Generate PKCE
-      const { codeVerifier, codeChallenge } = await generatePKCE();
-      
-      if (!codeChallenge) {
-        setError('Failed to generate PKCE code challenge');
-        setLoading(false);
-        return;
-      }
-      
-      storePKCE(codeVerifier);
-      
-      // Store identifier in sessionStorage for next step
+      // Store identifier in sessionStorage for reference
       sessionStorage.setItem('login_identifier', identifier);
-      sessionStorage.setItem('code_challenge', codeChallenge);
 
-      // Call IAM login start — pass codeChallenge so server can build auth URL for active users
-      const result = await postLoginStart(identifier, {
-        codeChallenge,
-        redirectUri: `${window.location.origin}/auth/callback`,
-        clientId: 'diksha-portal'
-      });
+      // Call IAM login start
+      const result = await postLoginStart(identifier, password);
 
-      if (result.nextAction === 'USER_NOT_FOUND') {
-        setError('User not found. Please check your email or phone number.');
-      } else if (result.nextAction === 'VERIFY_OTP') {
-        // Proceed to OTP verification
+      console.log('[LoginPage] Login result:', result);
+
+      if (result.flow === 'USER_NOT_FOUND') {
+        setError('User not found. Please check your email, phone, or username.');
+      } else if (result.flow === 'PASSWORD_REQUIRED') {
+        setError('Please enter your password.');
+      } else if (result.flow === 'OTP_VERIFICATION') {
+        // New/unactivated user – proceed to OTP verification
         sessionStorage.setItem('txnId', result.txnId);
         navigate('/verify-otp', {
           state: {
@@ -55,12 +43,15 @@ export default function LoginPage() {
             maskedIdentifier: result.maskedIdentifier
           }
         });
-      } else if (result.nextAction === 'KEYCLOAK_LOGIN') {
-        // Active user – redirect to Keycloak PKCE auth
-        sessionStorage.setItem('oauth_state', result.state);
-        window.location.href = result.authUrl;
+      } else if (result.flow === 'AUTHENTICATED') {
+        // Active user – Direct Grant succeeded, store tokens and go to dashboard
+        setAuthToken(result.tokens.accessToken);
+        sessionStorage.setItem('access_token', result.tokens.accessToken);
+        sessionStorage.setItem('token_decoded', JSON.stringify(result.user));
+        sessionStorage.setItem('user_profile', JSON.stringify(result.user));
+        navigate('/dashboard');
       } else {
-        setError('Unexpected response from server');
+        setError('Unexpected response from server: ' + (result.flow || 'unknown'));
       }
     } catch (err) {
       console.error('Login error:', err);
@@ -91,18 +82,18 @@ export default function LoginPage() {
 
           <div className="header">
             <h1>Login</h1>
-            <p>Enter Your Email ID/Mobile Number</p>
+            <p>Enter DIKSHA ID / Email ID / Mobile Number</p>
           </div>
 
           {error && <div className="error">{error}</div>}
 
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label htmlFor="identifier">Enter Your Email ID/Mobile Number*</label>
+              <label htmlFor="identifier">Enter DIKSHA ID / Email ID / Mobile Number*</label>
               <input
                 id="identifier"
                 type="text"
-                placeholder="enter your email id/mobile number"
+                placeholder="enter DIKSHA ID, email, or mobile number"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 disabled={loading}
@@ -117,6 +108,8 @@ export default function LoginPage() {
                   id="password"
                   type="password"
                   placeholder="enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
                 />
                 <span className="password-toggle">👁️</span>

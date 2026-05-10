@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
+import { postLogout } from '../utils/api';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -31,9 +32,32 @@ export default function DashboardPage() {
     }
   }, [navigate]);
 
-  const handleLogout = () => {
-    sessionStorage.clear();
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      const refreshToken = sessionStorage.getItem('refresh_token');
+      const userProfile = sessionStorage.getItem('user_profile');
+      let iamUserId = null;
+
+      if (userProfile) {
+        try {
+          const parsed = JSON.parse(userProfile);
+          iamUserId = parsed.iamUserId;
+        } catch (e) {
+          console.warn('Failed to parse user profile:', e.message);
+        }
+      }
+
+      // Call logout endpoint to revoke tokens
+      await postLogout(refreshToken, iamUserId);
+      
+      console.log('[Dashboard] Logout successful, redirecting to login');
+      navigate('/login');
+    } catch (err) {
+      console.error('[Dashboard] Logout error:', err.message);
+      // Clear session and redirect to login even if logout fails
+      sessionStorage.clear();
+      navigate('/login');
+    }
   };
 
   if (error) {

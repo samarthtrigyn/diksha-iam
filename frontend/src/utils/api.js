@@ -2,6 +2,19 @@ import axios from 'axios';
 
 const ORCHESTRATOR_URL = import.meta.env.VITE_ORCHESTRATOR_URL || 'http://localhost:4000';
 
+/**
+ * Mask email/phone for logging
+ */
+function maskIdentifier(identifier) {
+  if (!identifier) return '***';
+  if (identifier.includes('@')) {
+    const [local, domain] = identifier.split('@');
+    return `${local.substring(0, 3)}***@${domain}`;
+  } else {
+    return identifier.substring(0, 3) + '***' + identifier.slice(-3);
+  }
+}
+
 const apiClient = axios.create({
   baseURL: ORCHESTRATOR_URL,
   timeout: 10000,
@@ -23,28 +36,21 @@ export function setAuthToken(token) {
 
 /**
  * POST /iam/login/start
- * Start login flow with email/phone
+ * Start login flow with email/phone/username
  */
-export async function postLoginStart(identifier, { codeChallenge, redirectUri, clientId } = {}) {
+export async function postLoginStart(identifier, password) {
   try {
     // Validate required parameters
-    if (!codeChallenge) {
-      console.error('postLoginStart: codeChallenge is required', { identifier, redirectUri, clientId });
-      throw new Error('codeChallenge is required');
+    if (!identifier) {
+      console.error('postLoginStart: identifier is required');
+      throw new Error('identifier is required');
     }
     
-    const body = {
-      identifier,
-      codeChallenge,
-      redirectUri,
-      clientId
-    };
+    const body = { identifier, ...(password && { password }) };
     
     console.log('[API] POST /iam/login/start with body:', {
-      identifier,
-      codeChallenge: codeChallenge ? `${codeChallenge.substring(0, 20)}...` : null,
-      redirectUri,
-      clientId
+      identifier: maskIdentifier(identifier),
+      password: password ? '***' : undefined
     });
     
     const response = await apiClient.post('/iam/login/start', body);
@@ -58,22 +64,16 @@ export async function postLoginStart(identifier, { codeChallenge, redirectUri, c
  * POST /iam/activation/verify-otp
  * Verify OTP and get Keycloak authorization URL
  */
-export async function postVerifyOtp(txnId, identifier, otp, codeChallenge, redirectUri) {
+export async function postVerifyOtp(txnId, otp) {
   try {
     const body = {
       txnId,
-      identifier,
-      otp,
-      codeChallenge,
-      redirectUri
+      otp
     };
     
     console.log('[API] POST /iam/activation/verify-otp with body:', {
       txnId,
-      identifier: identifier?.substring(0, 5) + '***',
-      otp: '***',
-      codeChallenge: codeChallenge?.substring(0, 20) + '...',
-      redirectUri
+      otp: '***'
     });
     
     const response = await apiClient.post('/iam/activation/verify-otp', body);
@@ -82,9 +82,6 @@ export async function postVerifyOtp(txnId, identifier, otp, codeChallenge, redir
     console.log('[API] Response status:', response.status);
     console.log('[API] Response headers:', response.headers);
     console.log('[API] Response data:', response.data);
-    console.log('[API] Response data stringified:', JSON.stringify(response.data));
-    console.log('[API] Response data type:', typeof response.data);
-    console.log('[API] Response data keys:', Object.keys(response.data || {}));
     
     if (!response.data || typeof response.data !== 'object') {
       console.error('[API] Invalid response format:', response.data);
@@ -118,9 +115,35 @@ export async function getMe() {
 }
 
 /**
- * Exchange authorization code for tokens with Keycloak
+ * POST /iam/auth/callback
+ * Exchange authorization code for tokens via IAM orchestrator
+ * The orchestrator handles the code exchange with Keycloak using server-side PKCE
+ */
+export async function postAuthCallback(code, state) {
+  try {
+    if (!code || !state) {
+      throw new Error('code and state are required');
+    }
+
+    const body = { code, state };
+
+    console.log('[API] POST /iam/auth/callback with code and state');
+
+    const response = await apiClient.post('/iam/auth/callback', body);
+    return response.data;
+  } catch (error) {
+    console.error('[API] Error in postAuthCallback:', error.message);
+    throw error.response?.data || { error: error.message };
+  }
+}
+
+/**
+ * DEPRECATED: Use postAuthCallback instead
+ * Exchange authorization code for tokens with Keycloak directly
+ * @deprecated - Token exchange is now handled by IAM orchestrator
  */
 export async function exchangeCodeForToken(code, codeVerifier, clientId, redirectUri) {
+  console.warn('[API] exchangeCodeForToken is deprecated. Use postAuthCallback instead.');
   const keycloakUrl = import.meta.env.VITE_KEYCLOAK_URL || 'http://localhost:8080';
   const realm = import.meta.env.VITE_KEYCLOAK_REALM || 'diksha-demo';
 
@@ -146,6 +169,39 @@ export async function exchangeCodeForToken(code, codeVerifier, clientId, redirec
     return response.data;
   } catch (error) {
     console.error('Token exchange failed:', error.response?.data || error.message);
+    throw error.response?.data || { error: error.message };
+  }
+}
+
+/**
+ * POST /iam/logout
+ * Revoke tokens and log out user from Keycloak
+ */
+export async function postLogout(refreshToken, iamUserId) {
+  try {
+    const body = {
+      ...(refreshToken && { refreshToken }),
+      ...(iamUserId && { iamUserId })
+    };
+
+    console.log('[API] POST /iam/logout with body:', { iamUserId });
+
+    const response = await apiClient.post('/iam/logout', body);
+    
+    // Clear auth token from headers after logout
+    setAuthToken(null);
+    
+    // Clear all auth-related session storage
+    sessionStorage.removeItem('access_token');
+    sessionStorage.removeItem('refresh_token');
+    sessionStorage.removeItem('id_token');
+    sessionStorage.removeItem('token_decoded');
+    sessionStorage.removeItem('user_profile');
+    sessionStorage.removeItem('oauth_state');
+
+    return response.data;
+  } catch (error) {
+    console.error('[API] Error in postLogout:', error.message);
     throw error.response?.data || { error: error.message };
   }
 }

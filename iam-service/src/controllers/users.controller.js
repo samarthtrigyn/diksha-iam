@@ -37,9 +37,9 @@ async function createUserHandler(req, res, next) {
 async function getUserHandler(req, res, next) {
   try {
     const { id } = req.params;
-    const { email, phone } = req.query;
+    const { email, phone, username } = req.query;
     const isEncrypted = parseBooleanQueryFlag(req.query.isEncrypted, 'isEncrypted');
-    const user = await getUser({ id, email, phone });
+    const user = await getUser({ id, email, phone, username });
     setNoStoreHeaders(res);
     res.status(200).json({ user: formatUserForResponse(user, isEncrypted) });
   } catch (err) {

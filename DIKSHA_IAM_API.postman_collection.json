@@ -1,0 +1,523 @@
+{
+  "info": {
+    "name": "DIKSHA IAM System",
+    "description": "Complete API testing collection for DIKSHA IAM System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "orchestrator_url",
+      "value": "http://localhost:4000",
+      "type": "string"
+    },
+    {
+      "key": "iam_service_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "keycloak_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "keycloak_realm",
+      "value": "diksha-demo",
+      "type": "string"
+    },
+    {
+      "key": "keycloak_client_id",
+      "value": "diksha-portal",
+      "type": "string"
+    },
+    {
+      "key": "test_email",
+      "value": "samarth.nigam2887@gmail.com",
+      "type": "string"
+    },
+    {
+      "key": "test_password",
+      "value": "Test@123456",
+      "type": "string"
+    },
+    {
+      "key": "test_otp",
+      "value": "123456",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "id_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "admin_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "txnId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "state",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "auth_code",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Orchestrator",
+      "description": "IAM Orchestrator - Central authentication service",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{orchestrator_url}}/health",
+              "host": ["{{orchestrator_url}}"],
+              "path": ["health"]
+            },
+            "description": "Check orchestrator health status"
+          },
+          "response": []
+        },
+        {
+          "name": "Login Start",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{orchestrator_url}}/iam/login/start",
+              "host": ["{{orchestrator_url}}"],
+              "path": ["iam", "login", "start"]
+            },
+            "description": "Start login flow with email/phone/username and optional password for direct grant"
+          },
+          "response": []
+        },
+        {
+          "name": "Login Start - New User (OTP)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"newuser@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{orchestrator_url}}/iam/login/start",
+              "host": ["{{orchestrator_url}}"],
+              "path": ["iam", "login", "start"]
+            },
+            "description": "Start OTP flow for new user (no password provided)"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{txnId}}\",\n  \"otp\": \"{{test_otp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{orchestrator_url}}/iam/activation/verify-otp",
+              "host": ["{{orchestrator_url}}"],
+              "path": ["iam", "activation", "verify-otp"]
+            },
+            "description": "Verify OTP and get Keycloak authorization URL"
+          },
+          "response": []
+        },
+        {
+          "name": "Auth Callback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{auth_code}}\",\n  \"state\": \"{{state}}\"\n}"
+            },
+            "url": {
+              "raw": "{{orchestrator_url}}/iam/auth/callback",
+              "host": ["{{orchestrator_url}}"],
+              "path": ["iam", "auth", "callback"]
+            },
+            "description": "Exchange authorization code for tokens (called after Keycloak redirect)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{orchestrator_url}}/iam/me",
+              "host": ["{{orchestrator_url}}"],
+              "path": ["iam", "me"]
+            },
+            "description": "Get current authenticated user profile"
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\",\n  \"iamUserId\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{orchestrator_url}}/iam/logout",
+              "host": ["{{orchestrator_url}}"],
+              "path": ["iam", "logout"]
+            },
+            "description": "Logout and revoke tokens"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "IAM Service",
+      "description": "IAM Service - User management and OTP",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{iam_service_url}}/health",
+              "host": ["{{iam_service_url}}"],
+              "path": ["health"]
+            },
+            "description": "Check IAM service health status"
+          },
+          "response": []
+        },
+        {
+          "name": "Generate OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{test_email}}\"\n}"
+            },
+            "url": {
+              "raw": "{{iam_service_url}}/otp/generate",
+              "host": ["{{iam_service_url}}"],
+              "path": ["otp", "generate"]
+            },
+            "description": "Generate OTP for identifier (email/phone)"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"{{test_email}}\",\n  \"otp\": \"{{test_otp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{iam_service_url}}/otp/verify",
+              "host": ["{{iam_service_url}}"],
+              "path": ["otp", "verify"]
+            },
+            "description": "Verify OTP for identifier"
+          },
+          "response": []
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"firstname\": \"Test\",\n  \"lastname\": \"User\",\n  \"email\": \"testuser@example.com\",\n  \"phone\": \"9876543210\",\n  \"status\": \"active\"\n}"
+            },
+            "url": {
+              "raw": "{{iam_service_url}}/users",
+              "host": ["{{iam_service_url}}"],
+              "path": ["users"]
+            },
+            "description": "Create new user"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{iam_service_url}}/users/{{user_id}}",
+              "host": ["{{iam_service_url}}"],
+              "path": ["users", "{{user_id}}"]
+            },
+            "description": "Get user by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by Email",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{iam_service_url}}/users?email={{test_email}}&isEncrypted=false",
+              "host": ["{{iam_service_url}}"],
+              "path": ["users"],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "{{test_email}}"
+                },
+                {
+                  "key": "isEncrypted",
+                  "value": "false"
+                }
+              ]
+            },
+            "description": "Get user by email"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Keycloak",
+      "description": "Keycloak - OpenID Connect provider",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{keycloak_url}}/health",
+              "host": ["{{keycloak_url}}"],
+              "path": ["health"]
+            },
+            "description": "Check Keycloak health status"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Admin Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "client_credentials"
+                },
+                {
+                  "key": "client_id",
+                  "value": "iam-admin-client"
+                },
+                {
+                  "key": "client_secret",
+                  "value": "iam-admin-client-secret"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{keycloak_url}}/realms/{{keycloak_realm}}/protocol/openid-connect/token",
+              "host": ["{{keycloak_url}}"],
+              "path": ["realms", "{{keycloak_realm}}", "protocol", "openid-connect", "token"]
+            },
+            "description": "Get admin token using client credentials grant"
+          },
+          "response": []
+        },
+        {
+          "name": "List Realms",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{keycloak_url}}/admin/realms",
+              "host": ["{{keycloak_url}}"],
+              "path": ["admin", "realms"]
+            },
+            "description": "List all realms (requires admin token)"
+          },
+          "response": []
+        },
+        {
+          "name": "List Users in Realm",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{keycloak_url}}/admin/realms/{{keycloak_realm}}/users",
+              "host": ["{{keycloak_url}}"],
+              "path": ["admin", "realms", "{{keycloak_realm}}", "users"]
+            },
+            "description": "List users in realm (requires admin token)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by Username",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{keycloak_url}}/admin/realms/{{keycloak_realm}}/users?username=testuser&exact=true",
+              "host": ["{{keycloak_url}}"],
+              "path": ["admin", "realms", "{{keycloak_realm}}", "users"],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "testuser"
+                },
+                {
+                  "key": "exact",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Get user by username (requires admin token)"
+          },
+          "response": []
+        },
+        {
+          "name": "List Clients",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{keycloak_url}}/admin/realms/{{keycloak_realm}}/clients",
+              "host": ["{{keycloak_url}}"],
+              "path": ["admin", "realms", "{{keycloak_realm}}", "clients"]
+            },
+            "description": "List clients in realm (requires admin token)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{keycloak_url}}/realms/{{keycloak_realm}}/protocol/openid-connect/userinfo",
+              "host": ["{{keycloak_url}}"],
+              "path": ["realms", "{{keycloak_realm}}", "protocol", "openid-connect", "userinfo"]
+            },
+            "description": "Get user info from access token"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

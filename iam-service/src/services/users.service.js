@@ -168,15 +168,16 @@ function validateCreatePayload(payload) {
   }
 }
 
-function validateGetInputs({ id, email, phone }) {
+function validateGetInputs({ id, email, phone, username }) {
   if (id != null) {
     if (!isNonEmptyString(id)) {
       throw new HttpError(400, 'id is required.');
     }
     return;
   }
-  if ((isNonEmptyString(email) && isNonEmptyString(phone)) || (!isNonEmptyString(email) && !isNonEmptyString(phone))) {
-    throw new HttpError(422, 'Provide exactly one of email or phone.', {
+  const providedFilters = [email, phone, username].filter(f => isNonEmptyString(f)).length;
+  if (providedFilters !== 1) {
+    throw new HttpError(422, 'Provide exactly one of email, phone, or username.', {
       errorCode: 422,
       error: 'Unprocessable Entity',
     });
@@ -386,7 +387,7 @@ async function createUser(payload = {}) {
   };
 }
 
-async function getUser({ id, email, phone }) {
+async function getUser({ id, email, phone, username }) {
   console.info('[users] Get requested');
   validateGetInputs({ id, email, phone });
   let userId = id;
@@ -395,6 +396,9 @@ async function getUser({ id, email, phone }) {
   }
   if (!userId && phone) {
     userId = await lookupUserIdByTypeValue('phone', phone);
+  }
+  if (!userId && username) {
+    userId = await lookupUserIdByTypeValue('username', username);
   }
 
   if (!userId) {

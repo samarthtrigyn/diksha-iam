@@ -29,7 +29,31 @@
       "name": "Login Flow",
       "item": [
         {
-          "name": "Start Login",
+          "name": "Start Login (with password - active users)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"user@example.com\",\n  \"password\": \"user-password\",\n  \"clientId\": \"diksha-portal\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/login/start",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "login", "start"]
+            },
+            "description": "Initiate login flow with password for active users.\n\n**For ACTIVE users (second-time login with password):**\nIf `activationStatus=ACTIVE` and password is provided:\n- Returns direct access tokens (no PKCE required)\n- Response: `nextAction: 'LOGIN_SUCCESS'` with `accessToken`, `idToken`, `refreshToken`\n\n**Parameters:**\n- `identifier`: Email or phone number (required)\n- `password`: User password (required for ACTIVE users to get direct token)\n- `clientId`: OAuth client ID (optional, defaults to 'diksha-portal')"
+          },
+          "response": []
+        },
+        {
+          "name": "Start Login (without password - PKCE flow)",
           "request": {
             "method": "POST",
             "header": [
@@ -48,7 +72,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["iam", "login", "start"]
             },
-            "description": "Initiate login flow. Returns either:\n- `nextAction: 'KEYCLOAK_LOGIN'` for active users\n- `nextAction: 'VERIFY_OTP'` for non-active users\n\n**Parameters:**\n- `identifier`: Email or phone number (required)\n- `codeChallenge`: PKCE code challenge (optional, recommended for security)\n- `redirectUri`: Frontend redirect URI after OAuth flow\n- `clientId`: OAuth client ID"
+            "description": "Initiate login flow without password (PKCE-based OAuth flow).\n\n**For ACTIVE users (PKCE browser flow):**\nIf `activationStatus=ACTIVE` and password is NOT provided:\n- Returns Keycloak authorization URL\n- Response: `nextAction: 'KEYCLOAK_LOGIN'` with `authUrl`\n\n**For FIRST_TIME users (new accounts):**\nIf `activationStatus != ACTIVE`:\n- Triggers OTP generation\n- Response: `nextAction: 'VERIFY_OTP'` with `txnId`\n\n**Parameters:**\n- `identifier`: Email or phone number (required)\n- `codeChallenge`: PKCE code challenge (optional, recommended for security)\n- `redirectUri`: Frontend redirect URI after OAuth flow\n- `clientId`: OAuth client ID"
           },
           "response": []
         }
@@ -149,13 +173,13 @@
       "key": "txnId",
       "value": "",
       "type": "string",
-      "description": "Transaction ID returned from /iam/login/start. Copy the txnId value here after receiving OTP step."
+      "description": "Transaction ID returned from /iam/login/start when OTP is needed (first-time users). Copy the txnId value here."
     },
     {
       "key": "accessToken",
       "value": "",
       "type": "string",
-      "description": "Access token from /auth/token-exchange response. Use this for authenticated endpoints."
+      "description": "Access token from /auth/token-exchange (PKCE flow) or directly from /iam/login/start response (password flow). Use this for authenticated endpoints like /iam/me."
     }
   ]
 }

@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { exchangeCodeForToken, setAuthToken, getMe } from '../utils/api';
-import { getPKCE, clearPKCE } from '../utils/pkce';
-import { jwtDecode } from 'jwt-decode';
+import { postAuthCallback, setAuthToken } from '../utils/api';
 
 export default function CallbackPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const callbackFired = useRef(false);
 
   useEffect(() => {
+    if (callbackFired.current) return;
+    callbackFired.current = true;
     handleCallback();
   }, []);
 
@@ -22,7 +23,6 @@ export default function CallbackPage() {
       const storedState   = sessionStorage.getItem('oauth_state');
 
       console.log('[Callback] URL params:', { code: code?.substring(0, 20) + '...', errorParam, returnedState, storedState });
-      console.log('[Callback] sessionStorage keys:', Object.keys(sessionStorage));
 
       // Handle Keycloak error redirect
       if (errorParam) {
@@ -48,70 +48,52 @@ export default function CallbackPage() {
       }
       sessionStorage.removeItem('oauth_state');
 
-      // Get PKCE code verifier
-      const codeVerifier = getPKCE();
-      console.log('[Callback] codeVerifier present:', !!codeVerifier);
-      if (!codeVerifier) {
-        setError('Session expired (PKCE verifier missing). Please start over.');
+      if (!returnedState) {
+        setError('State parameter missing from callback');
         setLoading(false);
         return;
       }
 
-      // Get Keycloak configuration
-      const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'diksha-portal';
-      const redirectUri = `${window.location.origin}/auth/callback`;
+      // Call IAM orchestrator callback endpoint
+      // The orchestrator handles code exchange with Keycloak using server-side PKCE
+      console.log('[Callback] Calling IAM orchestrator callback endpoint...');
+      const sessionContext = await postAuthCallback(code, returnedState);
+      console.log('[Callback] Received session context:', sessionContext);
 
-      // Exchange code for token
-      console.log('[Callback] Exchanging code for token...');
-      const tokenData = await exchangeCodeForToken(code, codeVerifier, clientId, redirectUri);
-      console.log('[Callback] Token exchange result keys:', Object.keys(tokenData || {}));
+      if (!sessionContext) {
+        setError('No session context returned from server');
+        setLoading(false);
+        return;
+      }
 
-      if (!tokenData.access_token) {
-        console.error('[Callback] No access_token in response:', tokenData);
-        setError('Failed to get access token: ' + JSON.stringify(tokenData));
+      const tokenData = sessionContext.tokens;
+      if (!tokenData || !tokenData.accessToken) {
+        console.error('[Callback] No access token in response:', sessionContext);
+        setError('Failed to get access token from server');
         setLoading(false);
         return;
       }
 
       // Store tokens in sessionStorage
-      sessionStorage.setItem('access_token', tokenData.access_token);
-      if (tokenData.refresh_token) {
-        sessionStorage.setItem('refresh_token', tokenData.refresh_token);
+      sessionStorage.setItem('access_token', tokenData.accessToken);
+      if (tokenData.refreshToken) {
+        sessionStorage.setItem('refresh_token', tokenData.refreshToken);
       }
-      if (tokenData.id_token) {
-        sessionStorage.setItem('id_token', tokenData.id_token);
+      if (tokenData.idToken) {
+        sessionStorage.setItem('id_token', tokenData.idToken);
       }
+
+      // Store user profile
+      sessionStorage.setItem('user_profile', JSON.stringify(sessionContext.user));
 
       // Set auth token for API calls
-      setAuthToken(tokenData.access_token);
+      setAuthToken(tokenData.accessToken);
 
-      // Clear PKCE
-      clearPKCE();
-
-      // Fetch user profile from IAM
-      console.log('[Callback] Fetching user profile...');
-      try {
-        const userProfile = await getMe();
-        console.log('[Callback] User profile:', userProfile);
-        sessionStorage.setItem('user_profile', JSON.stringify(userProfile));
-        
-        // Decode and store the access token for display
-        try {
-          const decoded = jwtDecode(tokenData.access_token);
-          sessionStorage.setItem('token_decoded', JSON.stringify(decoded));
-        } catch (e) {
-          console.warn('Failed to decode token:', e);
-        }
-
-        // Redirect to dashboard
-        navigate('/dashboard');
-      } catch (profileError) {
-        console.error('Failed to fetch user profile:', profileError);
-        setError('Failed to fetch user profile: ' + (profileError.error || profileError.message));
-        setLoading(false);
-      }
+      console.log('[Callback] Authentication successful, redirecting to dashboard');
+      // Redirect to dashboard
+      navigate('/dashboard');
     } catch (err) {
-      console.error('Callback error:', err);
+      console.error('[Callback] Error:', err);
       setError(err.error || err.message || 'Authentication failed');
       setLoading(false);
     }
@@ -122,12 +104,12 @@ export default function CallbackPage() {
       <div className="container">
         <div className="card">
           <div className="header">
-            <h1>Processing Login</h1>
+            <h1>Completing Sign-In</h1>
             <p>Please wait...</p>
           </div>
           <div className="loading">
             <div className="spinner"></div>
-            <p>Exchanging authorization code for tokens...</p>
+            <p>Completing sign-in...</p>
           </div>
         </div>
       </div>
