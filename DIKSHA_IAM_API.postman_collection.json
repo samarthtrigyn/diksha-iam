@@ -1,106 +1,97 @@
 {
   "info": {
     "name": "DIKSHA IAM System",
-    "description": "Complete API testing collection for DIKSHA IAM System",
+    "description": "Complete API testing collection for DIKSHA IAM System.\n\n**Services:**\n- `iam-orchestrator` — OAuth2/IAM orchestration (port 4000)\n- `iam-service` — User persistence layer (port 3000)\n\n**OTP Login Flow:**\n1. `POST /iam/login/start` → get `txnId` (PENDING state)\n2. `POST /iam/activation/verify-otp` → get `authUrl` + `state`\n3. Browser follows `authUrl` → Keycloak activates user → redirects with `code`\n4. `POST /iam/auth/callback` → get `access_token` + `refresh_token`\n\n**SSO Flow:**\n1. `GET /iam/sso/google/login` → get `authUrl`, redirect browser there\n2. Google → Keycloak → orchestrator callback → frontend redirect with session",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
-      "key": "orchestrator_url",
+      "key": "orchestratorUrl",
       "value": "http://localhost:4000",
       "type": "string"
     },
     {
-      "key": "iam_service_url",
+      "key": "iamServiceUrl",
       "value": "http://localhost:3000",
-      "type": "string"
-    },
-    {
-      "key": "keycloak_url",
-      "value": "http://localhost:8080",
-      "type": "string"
-    },
-    {
-      "key": "keycloak_realm",
-      "value": "diksha-demo",
-      "type": "string"
-    },
-    {
-      "key": "keycloak_client_id",
-      "value": "diksha-portal",
-      "type": "string"
-    },
-    {
-      "key": "test_email",
-      "value": "samarth.nigam2887@gmail.com",
-      "type": "string"
-    },
-    {
-      "key": "test_password",
-      "value": "Test@123456",
-      "type": "string"
-    },
-    {
-      "key": "test_otp",
-      "value": "123456",
       "type": "string"
     },
     {
       "key": "access_token",
       "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "Set after successful login (callback step)"
     },
     {
       "key": "refresh_token",
       "value": "",
-      "type": "string"
-    },
-    {
-      "key": "id_token",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "admin_token",
-      "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "Set after successful login (callback step)"
     },
     {
       "key": "txnId",
       "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "Transaction ID from login/start response"
     },
     {
       "key": "state",
       "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "OAuth state from verify-otp response"
     },
     {
-      "key": "auth_code",
+      "key": "iamUserId",
       "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "IAM user ID (also used as Keycloak user ID)"
     }
   ],
   "item": [
     {
-      "name": "Orchestrator",
-      "description": "IAM Orchestrator - Central authentication service",
+      "name": "Health",
       "item": [
         {
           "name": "Health Check",
           "request": {
             "method": "GET",
+            "header": [],
             "url": {
-              "raw": "{{orchestrator_url}}/health",
-              "host": ["{{orchestrator_url}}"],
+              "raw": "{{orchestratorUrl}}/health",
+              "host": ["{{orchestratorUrl}}"],
               "path": ["health"]
             },
-            "description": "Check orchestrator health status"
+            "description": "Returns 200 OK with service status."
           },
-          "response": []
-        },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\"status\":\"ok\"}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth — OTP Flow",
+      "description": "Complete OTP-based login flow. Execute in order: Start → Verify OTP → (browser redirect) → Callback.",
+      "item": [
         {
-          "name": "Login Start",
+          "name": "1. Login Start",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.txnId) pm.collectionVariables.set('txnId', res.txnId);",
+                  "if (res.iamUserId) pm.collectionVariables.set('iamUserId', res.iamUserId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -111,19 +102,59 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"identifier\": \"{{test_email}}\",\n  \"password\": \"{{test_password}}\"\n}"
+              "raw": "{\n  \"identifier\": \"9899367094\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
-              "raw": "{{orchestrator_url}}/iam/login/start",
-              "host": ["{{orchestrator_url}}"],
+              "raw": "{{orchestratorUrl}}/iam/login/start",
+              "host": ["{{orchestratorUrl}}"],
               "path": ["iam", "login", "start"]
             },
-            "description": "Start login flow with email/phone/username and optional password for direct grant"
+            "description": "Starts the login flow for a user by phone/email/username.\n\n**ACTIVE user** (password already set): Returns `{flow: 'DIRECT_LOGIN', access_token, refresh_token}`\n\n**PENDING user** (first-time / no password): Returns `{flow: 'OTP_REQUIRED', txnId}` — OTP sent to phone.\n\n**Body fields:**\n- `identifier` (required): phone number, email, or username\n- `password` (optional): if provided and user is ACTIVE, performs direct password login"
           },
-          "response": []
+          "response": [
+            {
+              "name": "OTP Required (PENDING user)",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"flow\": \"OTP_REQUIRED\",\n  \"txnId\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"message\": \"OTP sent\"\n}"
+            },
+            {
+              "name": "Direct Login (ACTIVE user with password)",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"flow\": \"DIRECT_LOGIN\",\n  \"access_token\": \"eyJhbGciOiJSUzI1NiIsInR5cCI...\",\n  \"refresh_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI...\",\n  \"expires_in\": 300,\n  \"iamUserId\": \"usr_abc123\"\n}"
+            },
+            {
+              "name": "User Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"error\": \"User not found\"\n}"
+            }
+          ]
         },
         {
-          "name": "Login Start - New User (OTP)",
+          "name": "2. Verify OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.state) pm.collectionVariables.set('state', res.state);",
+                  "// authUrl is for browser — open it manually to complete activation"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -134,42 +165,53 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"identifier\": \"newuser@example.com\"\n}"
-            },
-            "url": {
-              "raw": "{{orchestrator_url}}/iam/login/start",
-              "host": ["{{orchestrator_url}}"],
-              "path": ["iam", "login", "start"]
-            },
-            "description": "Start OTP flow for new user (no password provided)"
-          },
-          "response": []
-        },
-        {
-          "name": "Verify OTP",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
+              "raw": "{\n  \"txnId\": \"{{txnId}}\",\n  \"otp\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
               }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"txnId\": \"{{txnId}}\",\n  \"otp\": \"{{test_otp}}\"\n}"
             },
             "url": {
-              "raw": "{{orchestrator_url}}/iam/activation/verify-otp",
-              "host": ["{{orchestrator_url}}"],
+              "raw": "{{orchestratorUrl}}/iam/activation/verify-otp",
+              "host": ["{{orchestratorUrl}}"],
               "path": ["iam", "activation", "verify-otp"]
             },
-            "description": "Verify OTP and get Keycloak authorization URL"
+            "description": "Verifies the OTP for a pending activation.\n\nOn success returns `{flow: 'SET_PASSWORD', authUrl, state}`.\n\n- `authUrl`: Keycloak URL to redirect the browser to (activates user, shows set-password form)\n- `state`: PKCE state — used in the `/iam/auth/callback` step\n\n**Body fields:**\n- `txnId` (required): transaction ID from login/start\n- `otp` (required): 6-digit OTP received on phone"
           },
-          "response": []
+          "response": [
+            {
+              "name": "OTP Valid — Set Password",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"flow\": \"SET_PASSWORD\",\n  \"authUrl\": \"http://localhost:8080/realms/diksha-demo/protocol/openid-connect/auth?client_id=diksha-portal&response_type=code&scope=openid&redirect_uri=http%3A%2F%2Flocalhost%3A4000%2Fiam%2Fsso%2Fcallback&state=abc123&code_challenge=xyz&code_challenge_method=S256&activation_token=tok_xxx&identifier=user_abc\",\n  \"state\": \"abc123\"\n}"
+            },
+            {
+              "name": "Invalid OTP",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"error\": \"Invalid or expired OTP\"\n}"
+            }
+          ]
         },
         {
-          "name": "Auth Callback",
+          "name": "3. Auth Callback (exchange code)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.access_token) pm.collectionVariables.set('access_token', res.access_token);",
+                  "if (res.refresh_token) pm.collectionVariables.set('refresh_token', res.refresh_token);",
+                  "if (res.iamUserId) pm.collectionVariables.set('iamUserId', res.iamUserId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -180,19 +222,132 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"code\": \"{{auth_code}}\",\n  \"state\": \"{{state}}\"\n}"
+              "raw": "{\n  \"code\": \"<authorization_code_from_keycloak_redirect>\",\n  \"state\": \"{{state}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
-              "raw": "{{orchestrator_url}}/iam/auth/callback",
-              "host": ["{{orchestrator_url}}"],
+              "raw": "{{orchestratorUrl}}/iam/auth/callback",
+              "host": ["{{orchestratorUrl}}"],
               "path": ["iam", "auth", "callback"]
             },
-            "description": "Exchange authorization code for tokens (called after Keycloak redirect)"
+            "description": "Exchanges the Keycloak authorization code for tokens. Called by the frontend after the browser is redirected back from Keycloak with `?code=...&state=...`.\n\n**Body fields:**\n- `code` (required): authorization code from Keycloak redirect\n- `state` (required): must match the `state` from the verify-otp response\n\nOn success sets `access_token` and `refresh_token` collection variables."
           },
-          "response": []
+          "response": [
+            {
+              "name": "Success — Tokens Issued",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"access_token\": \"eyJhbGciOiJSUzI1NiIsInR5cCI...\",\n  \"refresh_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI...\",\n  \"expires_in\": 300,\n  \"token_type\": \"Bearer\",\n  \"iamUserId\": \"usr_abc123\",\n  \"activationStatus\": \"ACTIVE\"\n}"
+            },
+            {
+              "name": "State Mismatch / Expired",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"error\": \"Invalid or expired state\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth — SSO Flow",
+      "description": "Google SSO flow. The browser must follow the authUrl — these calls cannot be tested end-to-end from Postman alone.",
+      "item": [
+        {
+          "name": "SSO Login (get authUrl)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.state) pm.collectionVariables.set('state', res.state);",
+                  "if (res.authUrl) console.log('Open in browser:', res.authUrl);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{orchestratorUrl}}/iam/sso/google/login?redirectUri=http://localhost:5173/callback",
+              "host": ["{{orchestratorUrl}}"],
+              "path": ["iam", "sso", "google", "login"],
+              "query": [
+                {
+                  "key": "redirectUri",
+                  "value": "http://localhost:5173/callback",
+                  "description": "Frontend callback URL"
+                }
+              ]
+            },
+            "description": "Initiates SSO login for a provider.\n\n**Path params:**\n- `provider`: `google` (only supported provider currently)\n\n**Query params:**\n- `redirectUri` (optional): frontend URL to redirect to after SSO completes\n\nReturns `{authUrl, state}`. Open `authUrl` in a browser to proceed with Google login."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"authUrl\": \"http://localhost:8080/realms/diksha-demo/protocol/openid-connect/auth?client_id=diksha-portal&response_type=code&scope=openid&redirect_uri=...&state=sso_abc123&kc_idp_hint=google\",\n  \"state\": \"sso_abc123\"\n}"
+            }
+          ]
         },
         {
-          "name": "Get Current User",
+          "name": "SSO Callback (internal — Keycloak redirects here)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{orchestratorUrl}}/iam/sso/google/callback?code=<auth_code>&state={{state}}",
+              "host": ["{{orchestratorUrl}}"],
+              "path": ["iam", "sso", "google", "callback"],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "<auth_code>",
+                  "description": "Authorization code from Keycloak"
+                },
+                {
+                  "key": "state",
+                  "value": "{{state}}",
+                  "description": "Must match state from SSO login"
+                }
+              ]
+            },
+            "description": "**DO NOT CALL DIRECTLY.** This endpoint is called by Keycloak after Google SSO completes.\n\nOn success, redirects the browser to the frontend (`/callback?sso_session=<base64_session>`).\n\nThe frontend `CallbackPage.jsx` reads `sso_session` from the query string and decodes it to get tokens."
+          },
+          "response": [
+            {
+              "name": "Redirect to Frontend",
+              "status": "Found",
+              "code": 302,
+              "header": [
+                {
+                  "key": "Location",
+                  "value": "http://localhost:5173/callback?sso_session=eyJhY2Nlc3NfdG9rZW4i..."
+                }
+              ],
+              "body": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Session",
+      "description": "Endpoints that require a valid access_token.",
+      "item": [
+        {
+          "name": "Get Current User (/iam/me)",
           "request": {
             "method": "GET",
             "header": [
@@ -202,13 +357,28 @@
               }
             ],
             "url": {
-              "raw": "{{orchestrator_url}}/iam/me",
-              "host": ["{{orchestrator_url}}"],
+              "raw": "{{orchestratorUrl}}/iam/me",
+              "host": ["{{orchestratorUrl}}"],
               "path": ["iam", "me"]
             },
-            "description": "Get current authenticated user profile"
+            "description": "Returns the currently authenticated user's profile and activation status.\n\nDecodes the bearer token and enriches with IAM data.\n\n**Headers:**\n- `Authorization: Bearer {{access_token}}` (required)"
           },
-          "response": []
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"iamUserId\": \"usr_abc123\",\n  \"username\": \"john_doe\",\n  \"email\": \"john@example.com\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"phone\": \"9899367094\",\n  \"activationStatus\": \"ACTIVE\"\n}"
+            },
+            {
+              "name": "Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"error\": \"Unauthorized\"\n}"
+            }
+          ]
         },
         {
           "name": "Logout",
@@ -218,86 +388,44 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\",\n  \"iamUserId\": \"\"\n}"
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\",\n  \"iamUserId\": \"{{iamUserId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
-              "raw": "{{orchestrator_url}}/iam/logout",
-              "host": ["{{orchestrator_url}}"],
+              "raw": "{{orchestratorUrl}}/iam/logout",
+              "host": ["{{orchestratorUrl}}"],
               "path": ["iam", "logout"]
             },
-            "description": "Logout and revoke tokens"
+            "description": "Revokes the user's refresh token with Keycloak, ending the session.\n\n**Body fields:**\n- `refreshToken` (required): the refresh token to revoke\n- `iamUserId` (optional): used for audit/logging"
           },
-          "response": []
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"message\": \"Logged out successfully\"\n}"
+            }
+          ]
         }
       ]
     },
     {
-      "name": "IAM Service",
-      "description": "IAM Service - User management and OTP",
+      "name": "IAM Service — Users",
+      "description": "Direct calls to the IAM persistence service (port 3000). These are internal APIs normally called by the orchestrator, not the frontend.",
       "item": [
-        {
-          "name": "Health Check",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{iam_service_url}}/health",
-              "host": ["{{iam_service_url}}"],
-              "path": ["health"]
-            },
-            "description": "Check IAM service health status"
-          },
-          "response": []
-        },
-        {
-          "name": "Generate OTP",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"identifier\": \"{{test_email}}\"\n}"
-            },
-            "url": {
-              "raw": "{{iam_service_url}}/otp/generate",
-              "host": ["{{iam_service_url}}"],
-              "path": ["otp", "generate"]
-            },
-            "description": "Generate OTP for identifier (email/phone)"
-          },
-          "response": []
-        },
-        {
-          "name": "Verify OTP",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"identifier\": \"{{test_email}}\",\n  \"otp\": \"{{test_otp}}\"\n}"
-            },
-            "url": {
-              "raw": "{{iam_service_url}}/otp/verify",
-              "host": ["{{iam_service_url}}"],
-              "path": ["otp", "verify"]
-            },
-            "description": "Verify OTP for identifier"
-          },
-          "response": []
-        },
         {
           "name": "Create User",
           "request": {
@@ -310,212 +438,394 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"testuser\",\n  \"firstname\": \"Test\",\n  \"lastname\": \"User\",\n  \"email\": \"testuser@example.com\",\n  \"phone\": \"9876543210\",\n  \"status\": \"active\"\n}"
+              "raw": "{\n  \"username\": \"john_doe\",\n  \"phone\": \"9899367094\",\n  \"email\": \"john@example.com\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
-              "raw": "{{iam_service_url}}/users",
-              "host": ["{{iam_service_url}}"],
+              "raw": "{{iamServiceUrl}}/users",
+              "host": ["{{iamServiceUrl}}"],
               "path": ["users"]
             },
-            "description": "Create new user"
+            "description": "Creates a new user in Cassandra. Returns the created user with a generated `userId`."
           },
-          "response": []
+          "response": [
+            {
+              "name": "Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"userId\": \"usr_abc123\",\n  \"username\": \"john_doe\",\n  \"phone\": \"9899367094\",\n  \"email\": \"john@example.com\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"activationStatus\": \"PENDING\",\n  \"createdAt\": \"2024-01-01T00:00:00.000Z\"\n}"
+            }
+          ]
         },
         {
           "name": "Get User by ID",
           "request": {
             "method": "GET",
+            "header": [],
             "url": {
-              "raw": "{{iam_service_url}}/users/{{user_id}}",
-              "host": ["{{iam_service_url}}"],
-              "path": ["users", "{{user_id}}"]
+              "raw": "{{iamServiceUrl}}/users/{{iamUserId}}",
+              "host": ["{{iamServiceUrl}}"],
+              "path": ["users", "{{iamUserId}}"]
             },
-            "description": "Get user by ID"
+            "description": "Fetches a user by their IAM user ID."
           },
-          "response": []
+          "response": [
+            {
+              "name": "Found",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"userId\": \"usr_abc123\",\n  \"username\": \"john_doe\",\n  \"phone\": \"9899367094\",\n  \"email\": \"john@example.com\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"activationStatus\": \"ACTIVE\"\n}"
+            },
+            {
+              "name": "Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"error\": \"User not found\"\n}"
+            }
+          ]
         },
         {
-          "name": "Get User by Email",
+          "name": "Get User by Phone / Email / Username",
           "request": {
             "method": "GET",
+            "header": [],
             "url": {
-              "raw": "{{iam_service_url}}/users?email={{test_email}}&isEncrypted=false",
-              "host": ["{{iam_service_url}}"],
+              "raw": "{{iamServiceUrl}}/users?phone=9899367094",
+              "host": ["{{iamServiceUrl}}"],
               "path": ["users"],
               "query": [
                 {
-                  "key": "email",
-                  "value": "{{test_email}}"
+                  "key": "phone",
+                  "value": "9899367094",
+                  "description": "Lookup by phone"
                 },
                 {
-                  "key": "isEncrypted",
-                  "value": "false"
+                  "key": "email",
+                  "value": "",
+                  "description": "Lookup by email",
+                  "disabled": true
+                },
+                {
+                  "key": "username",
+                  "value": "",
+                  "description": "Lookup by username",
+                  "disabled": true
                 }
               ]
             },
-            "description": "Get user by email"
+            "description": "Looks up a user by phone, email, or username query parameter. Use only one at a time."
           },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Keycloak",
-      "description": "Keycloak - OpenID Connect provider",
-      "item": [
-        {
-          "name": "Health Check",
-          "request": {
-            "method": "GET",
-            "url": {
-              "raw": "{{keycloak_url}}/health",
-              "host": ["{{keycloak_url}}"],
-              "path": ["health"]
-            },
-            "description": "Check Keycloak health status"
-          },
-          "response": []
+          "response": [
+            {
+              "name": "Found",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"userId\": \"usr_abc123\",\n  \"username\": \"john_doe\",\n  \"phone\": \"9899367094\",\n  \"activationStatus\": \"ACTIVE\"\n}"
+            }
+          ]
         },
         {
-          "name": "Get Admin Token",
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{iamServiceUrl}}/users/{{iamUserId}}",
+              "host": ["{{iamServiceUrl}}"],
+              "path": ["users", "{{iamUserId}}"]
+            },
+            "description": "Deletes a user from Cassandra by user ID. This does NOT delete the user from Keycloak."
+          },
+          "response": [
+            {
+              "name": "Deleted",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"message\": \"User deleted\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get User by External Identity",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{iamServiceUrl}}/users/external/google/sub/1234567890",
+              "host": ["{{iamServiceUrl}}"],
+              "path": ["users", "external", "google", "sub", "1234567890"]
+            },
+            "description": "Looks up a user by an external identity provider ID.\n\n**Path params:**\n- `provider`: e.g. `google`\n- `idtype`: e.g. `sub` (the claim name used as the external ID)\n- `externalid`: the external provider's user ID value"
+          },
+          "response": [
+            {
+              "name": "Found",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"userId\": \"usr_abc123\",\n  \"username\": \"john_doe\",\n  \"email\": \"john@google.com\"\n}"
+            },
+            {
+              "name": "Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"error\": \"User not found\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "SSO Resolve User",
           "request": {
             "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
-                "value": "application/x-www-form-urlencoded"
+                "value": "application/json"
               }
             ],
             "body": {
-              "mode": "urlencoded",
-              "urlencoded": [
-                {
-                  "key": "grant_type",
-                  "value": "client_credentials"
-                },
-                {
-                  "key": "client_id",
-                  "value": "iam-admin-client"
-                },
-                {
-                  "key": "client_secret",
-                  "value": "iam-admin-client-secret"
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"google\",\n  \"idtype\": \"sub\",\n  \"externalId\": \"1234567890\",\n  \"email\": \"john@gmail.com\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
                 }
-              ]
+              }
             },
             "url": {
-              "raw": "{{keycloak_url}}/realms/{{keycloak_realm}}/protocol/openid-connect/token",
-              "host": ["{{keycloak_url}}"],
-              "path": ["realms", "{{keycloak_realm}}", "protocol", "openid-connect", "token"]
+              "raw": "{{iamServiceUrl}}/users/sso-resolve",
+              "host": ["{{iamServiceUrl}}"],
+              "path": ["users", "sso-resolve"]
             },
-            "description": "Get admin token using client credentials grant"
+            "description": "Finds or creates a user from SSO provider claims. Used internally by the orchestrator during the SSO callback.\n\nIf a user with the given external identity exists, returns them. Otherwise creates a new user and links the external identity."
           },
-          "response": []
+          "response": [
+            {
+              "name": "Existing User Found",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"userId\": \"usr_abc123\",\n  \"username\": \"john_doe\",\n  \"email\": \"john@gmail.com\",\n  \"activationStatus\": \"ACTIVE\",\n  \"isNew\": false\n}"
+            },
+            {
+              "name": "New User Created",
+              "status": "Created",
+              "code": 201,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"userId\": \"usr_new456\",\n  \"username\": \"john_doe_abc\",\n  \"email\": \"john@gmail.com\",\n  \"activationStatus\": \"ACTIVE\",\n  \"isNew\": true\n}"
+            }
+          ]
         },
         {
-          "name": "List Realms",
+          "name": "Link External Identity",
           "request": {
-            "method": "GET",
+            "method": "POST",
             "header": [
               {
-                "key": "Authorization",
-                "value": "Bearer {{admin_token}}"
+                "key": "Content-Type",
+                "value": "application/json"
               }
             ],
-            "url": {
-              "raw": "{{keycloak_url}}/admin/realms",
-              "host": ["{{keycloak_url}}"],
-              "path": ["admin", "realms"]
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"google\",\n  \"idtype\": \"sub\",\n  \"externalId\": \"1234567890\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "description": "List all realms (requires admin token)"
+            "url": {
+              "raw": "{{iamServiceUrl}}/users/{{iamUserId}}/link-external-identity",
+              "host": ["{{iamServiceUrl}}"],
+              "path": ["users", "{{iamUserId}}", "link-external-identity"]
+            },
+            "description": "Links an external provider identity to an existing IAM user.\n\n**Body fields:**\n- `provider`: identity provider name (e.g. `google`)\n- `idtype`: claim name used as the external user ID (e.g. `sub`)\n- `externalId`: the external provider's user ID value"
           },
-          "response": []
+          "response": [
+            {
+              "name": "Linked",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"message\": \"External identity linked\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IAM Service — OTP",
+      "description": "Direct OTP APIs on the IAM service (port 3000). Normally called internally by the orchestrator.",
+      "item": [
+        {
+          "name": "Generate OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"9899367094\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{iamServiceUrl}}/otp/generate",
+              "host": ["{{iamServiceUrl}}"],
+              "path": ["otp", "generate"]
+            },
+            "description": "Generates and sends an OTP to the given phone number. Returns a `txnId` to use in the verify step."
+          },
+          "response": [
+            {
+              "name": "OTP Sent",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"txnId\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"message\": \"OTP sent\"\n}"
+            }
+          ]
         },
         {
-          "name": "List Users in Realm",
+          "name": "Verify OTP",
           "request": {
-            "method": "GET",
+            "method": "POST",
             "header": [
               {
-                "key": "Authorization",
-                "value": "Bearer {{admin_token}}"
+                "key": "Content-Type",
+                "value": "application/json"
               }
             ],
-            "url": {
-              "raw": "{{keycloak_url}}/admin/realms/{{keycloak_realm}}/users",
-              "host": ["{{keycloak_url}}"],
-              "path": ["admin", "realms", "{{keycloak_realm}}", "users"]
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{txnId}}\",\n  \"otp\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "description": "List users in realm (requires admin token)"
+            "url": {
+              "raw": "{{iamServiceUrl}}/otp/verify",
+              "host": ["{{iamServiceUrl}}"],
+              "path": ["otp", "verify"]
+            },
+            "description": "Verifies an OTP using a transaction ID.\n\n**Body fields:**\n- `txnId` (required): transaction ID from generate-otp\n- `otp` (required): 6-digit OTP"
           },
-          "response": []
-        },
+          "response": [
+            {
+              "name": "Valid",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"valid\": true\n}"
+            },
+            {
+              "name": "Invalid",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"valid\": false,\n  \"error\": \"Invalid or expired OTP\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "IAM Service — SSO",
+      "description": "SSO URL helper on the IAM service (port 3000).",
+      "item": [
         {
-          "name": "Get User by Username",
+          "name": "Get SSO URL",
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{admin_token}}"
-              }
-            ],
+            "header": [],
             "url": {
-              "raw": "{{keycloak_url}}/admin/realms/{{keycloak_realm}}/users?username=testuser&exact=true",
-              "host": ["{{keycloak_url}}"],
-              "path": ["admin", "realms", "{{keycloak_realm}}", "users"],
+              "raw": "{{iamServiceUrl}}/sso?provider=google&redirectUri=http://localhost:5173/callback",
+              "host": ["{{iamServiceUrl}}"],
+              "path": ["sso"],
               "query": [
                 {
-                  "key": "username",
-                  "value": "testuser"
+                  "key": "provider",
+                  "value": "google"
                 },
                 {
-                  "key": "exact",
-                  "value": "true"
+                  "key": "redirectUri",
+                  "value": "http://localhost:5173/callback"
                 }
               ]
             },
-            "description": "Get user by username (requires admin token)"
+            "description": "Returns the Keycloak SSO authorization URL for the given provider. Used internally by the orchestrator."
           },
-          "response": []
-        },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"url\": \"http://localhost:8080/realms/diksha-demo/protocol/openid-connect/auth?client_id=diksha-portal&kc_idp_hint=google&...\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Deprecated",
+      "description": "Endpoints that have been deprecated and removed.",
+      "item": [
         {
-          "name": "List Clients",
+          "name": "[DEPRECATED] Token Exchange",
           "request": {
-            "method": "GET",
+            "method": "POST",
             "header": [
               {
-                "key": "Authorization",
-                "value": "Bearer {{admin_token}}"
+                "key": "Content-Type",
+                "value": "application/json"
               }
             ],
-            "url": {
-              "raw": "{{keycloak_url}}/admin/realms/{{keycloak_realm}}/clients",
-              "host": ["{{keycloak_url}}"],
-              "path": ["admin", "realms", "{{keycloak_realm}}", "clients"]
-            },
-            "description": "List clients in realm (requires admin token)"
-          },
-          "response": []
-        },
-        {
-          "name": "Get User Info",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
               }
-            ],
-            "url": {
-              "raw": "{{keycloak_url}}/realms/{{keycloak_realm}}/protocol/openid-connect/userinfo",
-              "host": ["{{keycloak_url}}"],
-              "path": ["realms", "{{keycloak_realm}}", "protocol", "openid-connect", "userinfo"]
             },
-            "description": "Get user info from access token"
+            "url": {
+              "raw": "{{orchestratorUrl}}/auth/token-exchange",
+              "host": ["{{orchestratorUrl}}"],
+              "path": ["auth", "token-exchange"]
+            },
+            "description": "**DEPRECATED — returns HTTP 410 Gone.**\n\nThis endpoint has been removed. Use the OTP flow (`/iam/login/start` → `/iam/activation/verify-otp` → `/iam/auth/callback`) instead."
           },
-          "response": []
+          "response": [
+            {
+              "name": "Gone",
+              "status": "Gone",
+              "code": 410,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"error\": \"This endpoint has been deprecated. Use /iam/auth/callback instead.\"\n}"
+            }
+          ]
         }
       ]
     }

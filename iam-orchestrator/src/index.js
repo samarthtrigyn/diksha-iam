@@ -96,7 +96,7 @@ let redisClient;
 
 /**
  * Get or set mapping between IAM userId and Keycloak userId
- * mapping:{iamUserId} → { iamUserId, keycloakUserId, username, activationStatus, updatedAt }
+ * mapping:{iamUserId} → { iamUserId, username, activationStatus, updatedAt }
  */
 const mappingStore = {
   async get(iamUserId) {
@@ -162,7 +162,7 @@ const txnStore = {
 
 /**
  * Store state data indexed by state
- * state:{state} → { identifier, iamUserId, keycloakUserId, codeVerifier, nonce, activationStatus, expiresAt }
+ * state:{state} → { identifier, iamUserId, codeVerifier, nonce, activationStatus, expiresAt }
  */
 const stateStore = {
   async get(state) {
@@ -411,9 +411,9 @@ async function upsertKeycloakUserFromIamUser(iamUser, adminToken) {
       const updatePayload = {
         firstName: firstName || existing.firstName,
         lastName: lastName || existing.lastName,
-        email: email || existing.email,
+        email: email || existing.email || '',  // Always include email from IAM (trust as source of truth)
         enabled: true,
-        emailVerified: true,
+        emailVerified: true,  // Trust IAM as source of truth
         requiredActions: actions,
         attributes: {
           iamUserId: [userId],
@@ -435,19 +435,20 @@ async function upsertKeycloakUserFromIamUser(iamUser, adminToken) {
 
       logKeycloakCall('PUT', `${createEndpoint}/${kcUserId}`, updateResp.status, `User updated with actions: ${actions.join(', ')}`);
       
-      return kcUserId;
+      return userId;  // iamUserId === keycloakUserId
     }
 
     // Step 2: User doesn't exist – create new
     console.log(`[KEYCLOAK-REQ] POST ${createEndpoint} (username: ${username}) ${getLineNum()}`);
     
     const userPayload = {
+      id: userId,
       username,
       enabled: true,
       firstName,
       lastName,
-      ...(email && { email }),
-      emailVerified: true,
+      email: email || '',  // Always include email from IAM (even if empty)
+      emailVerified: true,  // Trust IAM as source of truth
       requiredActions: ['UPDATE_PASSWORD'],
       attributes: {
         iamUserId: [userId],
@@ -469,10 +470,8 @@ async function upsertKeycloakUserFromIamUser(iamUser, adminToken) {
     logKeycloakCall('POST', createEndpoint, createResp.status, `User creation attempt for ${username}`);
 
     if (createResp.status === 201) {
-      const location = createResp.headers['location'] || '';
-      const kcUserId = location.split('/').pop();
-      console.log(`[KEYCLOAK] User created: ${username} (${kcUserId}) with iamUserId=${userId} ${getLineNum()}`);
-      return kcUserId;
+      console.log(`[KEYCLOAK] User created: ${username} (${userId}) with iamUserId=${userId} ${getLineNum()}`);
+      return userId;  // iamUserId === keycloakUserId (we set id: userId in payload)
     }
 
     logKeycloakCall('POST', createEndpoint, createResp.status, `Unexpected response: ${JSON.stringify(createResp.data)}`);
@@ -490,12 +489,12 @@ async function upsertKeycloakUserFromIamUser(iamUser, adminToken) {
  * Format: base64url(header).base64url(payload).base64url(HMAC-SHA256)
  * TTL: 10 minutes.  The Java authenticator validates this same format.
  */
-function generateActivationToken({ identifier, keycloakUserId, iamUserId }) {
+function generateActivationToken({ identifier, iamUserId }) {
   const now    = Math.floor(Date.now() / 1000);
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'activation' }))
                    .toString('base64url');
   const body   = Buffer.from(JSON.stringify({
-    identifier, keycloakUserId, iamUserId,
+    identifier, iamUserId,
     purpose: 'PASSWORD_ACTIVATION',
     iat: now,
     exp: now + 600
@@ -669,7 +668,6 @@ app.post('/iam/login/start', async (req, res) => {
       try {
         await mappingStore.set(iamUserId, {
           iamUserId,
-          keycloakUserId: idTokenPayload.sub,
           username: iamUser.username,
           activationStatus: 'ACTIVE',
           updatedAt: Date.now()
@@ -709,12 +707,11 @@ app.post('/iam/login/start', async (req, res) => {
       console.log(`[LOGIN] User status: ${activationStatus || 'NEW'}, initiating OTP flow ${getLineNum()}`);
 
       // Create/update Keycloak user with canonical username and IAM attributes
-      let keycloakUserId;
       try {
         const adminToken = await getAdminToken();
         console.log(`[LOGIN] Obtained admin token, upserting Keycloak user ${getLineNum()}`);
-        keycloakUserId = await upsertKeycloakUserFromIamUser(iamUser, adminToken);
-        console.log(`[LOGIN] Keycloak user upserted: ${keycloakUserId} ${getLineNum()}`);
+        await upsertKeycloakUserFromIamUser(iamUser, adminToken);
+        console.log(`[LOGIN] Keycloak user upserted: ${iamUserId} ${getLineNum()}`);
       } catch (kcErr) {
         console.error(`[LOGIN] Failed to upsert Keycloak user ${getLineNum()}:`, kcErr.message);
         return res.status(500).json({ error: 'Failed to prepare user account' });
@@ -724,12 +721,11 @@ app.post('/iam/login/start', async (req, res) => {
       try {
         await mappingStore.set(iamUserId, {
           iamUserId,
-          keycloakUserId,
           username: iamUser.username,
           activationStatus: activationStatus || 'PASSWORD_SETUP_REQUIRED',
           updatedAt: Date.now()
         });
-        console.log(`[LOGIN] User mapping updated: ${iamUserId} → ${keycloakUserId} ${getLineNum()}`);
+        console.log(`[LOGIN] User mapping updated: ${iamUserId} ${getLineNum()}`);
       } catch (mapErr) {
         console.warn(`[LOGIN] Failed to update mapping ${getLineNum()}:`, mapErr.message);
       }
@@ -757,8 +753,8 @@ app.post('/iam/login/start', async (req, res) => {
       // Store transaction data in Redis
       await txnStore.set(txnId, {
         identifier,
+        username: iamUser.username,
         iamUserId,
-        keycloakUserId,
         txnId,
         expiresAt: Date.now() + 10 * 60 * 1000
       });
@@ -800,7 +796,7 @@ app.post('/iam/activation/verify-otp', async (req, res) => {
       return res.status(400).json({ error: 'Invalid or expired transaction' });
     }
 
-    const { identifier, iamUserId, keycloakUserId } = txnData;
+    const { identifier, iamUserId } = txnData;
     console.log(`[OTP] Transaction retrieved: identifier=${maskIdentifier(identifier)}, iamUserId=${iamUserId} ${getLineNum()}`);
 
     // ── STEP 2: Verify OTP ──
@@ -834,7 +830,6 @@ app.post('/iam/activation/verify-otp', async (req, res) => {
     try {
       await mappingStore.set(iamUserId, {
         iamUserId,
-        keycloakUserId,
         username: txnData.username || '',
         activationStatus: 'PASSWORD_SETUP_INITIATED',
         updatedAt: Date.now()
@@ -848,7 +843,6 @@ app.post('/iam/activation/verify-otp', async (req, res) => {
     await stateStore.set(state, {
       identifier,
       iamUserId,
-      keycloakUserId,
       codeVerifier,
       nonce,
       activationStatus: 'PASSWORD_SETUP_INITIATED',
@@ -860,14 +854,16 @@ app.post('/iam/activation/verify-otp', async (req, res) => {
     // ── STEP 6: Generate activation token and build Keycloak authorization URL ──
     // The activation token tells the custom Keycloak authenticator to skip the
     // login form and go directly to the UPDATE_PASSWORD required action page.
-    const activationToken = generateActivationToken({ identifier, keycloakUserId, iamUserId });
-    console.log(`[OTP] Generated activation token for ${maskIdentifier(identifier)} ${getLineNum()}`);
+    // Use Keycloak username as identifier so resolveUser() can find the user by username
+    const kcIdentifier = txnData.username || identifier;
+    const activationToken = generateActivationToken({ identifier: kcIdentifier, iamUserId });
+    console.log(`[OTP] Generated activation token for ${maskIdentifier(identifier)} (kcUsername: ${kcIdentifier}) ${getLineNum()}`);
 
     const keycloakAuthUrl = buildActivationAuthUrl({
       state,
       nonce,
       codeChallenge,
-      identifier,
+      identifier: kcIdentifier,
       activationToken,
       redirectUri,
       clientId: KEYCLOAK_CLIENT_ID
@@ -914,7 +910,7 @@ app.post('/iam/auth/callback', async (req, res) => {
       return res.status(400).json({ error: 'Invalid or expired state' });
     }
 
-    const { identifier, iamUserId, keycloakUserId, codeVerifier, nonce, activationStatus } = stateData;
+    const { identifier, iamUserId, codeVerifier, nonce, activationStatus } = stateData;
     console.log(`[CALLBACK] State validated for ${maskIdentifier(identifier)}, iamUserId: ${iamUserId} ${getLineNum()}`);
 
     // ── STEP 2: Exchange authorization code with Keycloak using server-side code_verifier ──
@@ -990,7 +986,6 @@ app.post('/iam/auth/callback', async (req, res) => {
     try {
       await mappingStore.set(iamUserId, {
         iamUserId,
-        keycloakUserId: kcSubject,
         username: kcUsername,
         activationStatus: 'ACTIVE',
         updatedAt: Date.now()
@@ -1292,6 +1287,7 @@ app.get('/iam/sso/:provider/callback', async (req, res) => {
     const { code, state, error, id_token } = req.query;
 
     console.log(`[SSO-CALLBACK] Received ${provider} callback, state: ${state} ${getLineNum()}`);
+    console.log(`[SSO-CALLBACK] Full Object ${JSON.stringify(req.query)} callback, state: ${state} ${getLineNum()}`);
 
     // Handle provider error
     if (error) {
@@ -1322,6 +1318,7 @@ app.get('/iam/sso/:provider/callback', async (req, res) => {
         }, { timeout: 10000 });
 
         console.log(`[SSO-CALLBACK] Got ID token from Google, validating ${getLineNum()}`);
+        console.log(`[SSO-CALLBACK] Got ID token from Google, ${JSON.stringify(tokenResp.data)} ${getLineNum()}`);
         tokenPayload = validateTokenClaims(tokenResp.data.id_token, stateData.nonce, 'https://accounts.google.com', GOOGLE_CLIENT_ID);
       } else if (provider.startsWith('state_')) {
         const stateCode = provider.replace('state_', '');
@@ -1391,12 +1388,11 @@ app.get('/iam/sso/:provider/callback', async (req, res) => {
 
     // Get or create Keycloak user
     const adminToken = await getAdminToken();
-    const keycloakUserId = await upsertKeycloakUserFromIamUser(user, adminToken);
+    await upsertKeycloakUserFromIamUser(user, adminToken);
 
     // Update mapping to ACTIVE (SSO users are immediately active)
     await mappingStore.set(user.id, {
       iamUserId: user.id,
-      keycloakUserId,
       username: user.username,
       activationStatus: 'ACTIVE',
       ssoProvider: provider,
@@ -1425,7 +1421,7 @@ app.get('/iam/sso/:provider/callback', async (req, res) => {
       ssoAction: action, // 'EXISTING', 'LINKED', or 'CREATED'
       ssoProvider: provider,
       user: {
-        id: keycloakUserId,
+        id: user.id,
         username: user.username,
         email: user.email,
         name: user.firstname && user.lastname ? `${user.firstname} ${user.lastname}` : user.firstname || '',
