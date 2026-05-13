@@ -589,7 +589,8 @@ app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'iam-orchest
 // ──────────────────────────────────────────────────────────────────────────────
 app.post('/iam/login/start', async (req, res) => {
   try {
-    const { identifier } = req.body;
+    //Get Identifier from mobile or portal
+    const { identifier, initiator } = req.body;
 
     if (!identifier) return res.status(400).json({ error: 'identifier is required' });
     
