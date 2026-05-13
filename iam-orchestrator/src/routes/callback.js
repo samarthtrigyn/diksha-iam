@@ -2,11 +2,13 @@ import { Router } from 'express';
 import axios from 'axios';
 import {
   KEYCLOAK_URL, KEYCLOAK_PUBLIC_URL, KEYCLOAK_REALM,
-  KEYCLOAK_CLIENT_ID, FRONTEND_REDIRECT_URI
+  KEYCLOAK_CLIENT_ID, FRONTEND_REDIRECT_URI, SESSION_TTL, SESSION_COOKIE_NAME
 } from '../config/index.js';
 import { getLineNum, maskIdentifier } from '../utils/helpers.js';
 import { validateTokenClaims } from '../utils/token.js';
 import { logKeycloakCall } from '../services/keycloak.js';
+import { createSession } from '../services/session.js';
+import { setSecureCookie } from '../middleware/secureCookie.js';
 import mappingStore from '../stores/mappingStore.js';
 import stateStore from '../stores/stateStore.js';
 
@@ -116,8 +118,35 @@ router.post('/iam/auth/callback', async (req, res) => {
       console.warn(`[CALLBACK] Failed to update mapping ${getLineNum()}:`, updateErr.message);
     }
 
-    // ── STEP 6: Build session response ──
+    // ── STEP 6: Create application session ──
+    let sessionId;
+    try {
+      const session = await createSession(iamUserId, kcUsername, {
+        accessToken: tokenResp.data.access_token,
+        idToken: tokenResp.data.id_token,
+        refreshToken: tokenResp.data.refresh_token,
+        expiresIn: tokenResp.data.expires_in,
+        tokenType: 'Bearer'
+      }, SESSION_TTL);
+
+      sessionId = session.sessionId;
+      console.log(`[CALLBACK] Session created: ${sessionId} ${getLineNum()}`);
+    } catch (sessErr) {
+      console.error(`[CALLBACK] Failed to create session ${getLineNum()}:`, sessErr.message);
+      return res.status(500).json({ error: 'Failed to create user session' });
+    }
+
+    // ── STEP 7: Set secure cookie ──
+    setSecureCookie(res, SESSION_COOKIE_NAME, sessionId, {
+      maxAge: SESSION_TTL * 1000,
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      sameSite: 'Strict'
+    });
+
+    // ── STEP 8: Build session response ──
     const sessionContext = {
+      sessionId,
       user: {
         id:        kcSubject,
         username:  kcUsername,

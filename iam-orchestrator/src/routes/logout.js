@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import axios from 'axios';
-import { KEYCLOAK_URL, KEYCLOAK_REALM, KEYCLOAK_CLIENT_ID } from '../config/index.js';
+import { KEYCLOAK_URL, KEYCLOAK_REALM, KEYCLOAK_CLIENT_ID, SESSION_COOKIE_NAME } from '../config/index.js';
 import { getLineNum, maskIdentifier } from '../utils/helpers.js';
-import { logKeycloakCall } from '../services/keycloak.js';
+import { logKeycloakCall, revokeToken } from '../services/keycloak.js';
+import { deleteSession } from '../services/session.js';
+import { clearSecureCookie, getSessionIdFromCookie } from '../middleware/secureCookie.js';
 
 const router = Router();
 
@@ -13,40 +15,34 @@ const router = Router();
 router.post('/iam/logout', async (req, res) => {
   try {
     const { refreshToken, iamUserId } = req.body;
+    const sessionId = getSessionIdFromCookie(req, SESSION_COOKIE_NAME);
 
-    console.log(`[LOGOUT] /iam/logout – iamUserId: ${iamUserId ? maskIdentifier(iamUserId) : 'unknown'} ${getLineNum()}`);
+    console.log(`[LOGOUT] /iam/logout – iamUserId: ${iamUserId ? maskIdentifier(iamUserId) : 'unknown'}, sessionId: ${sessionId ? sessionId.substring(0, 8) : 'none'} ${getLineNum()}`);
 
     // ── STEP 1: Revoke refresh token with Keycloak ──
     if (refreshToken) {
-      const revokeEndpoint = `/realms/${KEYCLOAK_REALM}/protocol/openid-connect/revoke`;
       try {
-        console.log(`[KEYCLOAK-REQ] POST ${revokeEndpoint} (revoke token) ${getLineNum()}`);
-
-        const revokeResp = await axios.post(
-          `${KEYCLOAK_URL}${revokeEndpoint}`,
-          new URLSearchParams({
-            client_id: KEYCLOAK_CLIENT_ID,
-            token: refreshToken,
-            token_type_hint: 'refresh_token'
-          }).toString(),
-          {
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            timeout: 10000,
-            validateStatus: (s) => s < 500
-          }
-        );
-
-        logKeycloakCall('POST', revokeEndpoint, revokeResp.status, 'Token revocation attempt');
-
-        if (revokeResp.status !== 200 && revokeResp.status !== 204) {
-          console.warn(`[LOGOUT] Token revocation returned ${revokeResp.status} ${getLineNum()}`);
-          // Continue logout even if token revocation fails
-        }
+        await revokeToken(refreshToken, KEYCLOAK_CLIENT_ID);
+        console.log(`[LOGOUT] Token revoked ${getLineNum()}`);
       } catch (err) {
         console.warn(`[LOGOUT] Failed to revoke token ${getLineNum()}:`, err.message);
         // Continue logout even if token revocation fails
       }
     }
+
+    // ── STEP 2: Delete application session from Redis ──
+    if (sessionId) {
+      try {
+        await deleteSession(sessionId);
+        console.log(`[LOGOUT] Session deleted: ${sessionId.substring(0, 8)}... ${getLineNum()}`);
+      } catch (sessErr) {
+        console.warn(`[LOGOUT] Failed to delete session ${getLineNum()}:`, sessErr.message);
+        // Continue logout even if session deletion fails
+      }
+    }
+
+    // ── STEP 3: Clear secure cookie ──
+    clearSecureCookie(res, SESSION_COOKIE_NAME);
 
     // NOTE: We intentionally do NOT delete the mapping here.
     // The mapping stores the user's long-term activationStatus (ACTIVE, etc.)

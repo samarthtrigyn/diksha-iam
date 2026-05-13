@@ -51,6 +51,19 @@ export const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 export const CORS_ORIGINS = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',');
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Session Management
+// ──────────────────────────────────────────────────────────────────────────────
+export const SESSION_TTL              = parseInt(process.env.SESSION_TTL || '86400', 10); // 24 hours in seconds
+export const SESSION_COOKIE_NAME      = process.env.SESSION_COOKIE_NAME || 'session_id';
+export const SECURE_COOKIE_DOMAIN     = process.env.SECURE_COOKIE_DOMAIN || undefined;
+export const SECURE_COOKIE_SECURE     = process.env.SECURE_COOKIE_SECURE === 'true' || process.env.NODE_ENV === 'production';
+
+// ──────────────────────────────────────────────────────────────────────────────
+// JWT/Token Validation
+// ──────────────────────────────────────────────────────────────────────────────
+export const JWKS_URI = process.env.JWKS_URI || `${KEYCLOAK_PUBLIC_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/certs`;
+
+// ──────────────────────────────────────────────────────────────────────────────
 // SSO Providers
 // ──────────────────────────────────────────────────────────────────────────────
 export const ORCHESTRATOR_URL     = process.env.ORCHESTRATOR_URL || 'http://localhost:4000';

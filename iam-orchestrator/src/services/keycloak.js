@@ -175,3 +175,138 @@ export async function upsertKeycloakUserFromIamUser(iamUser, adminToken) {
     throw err;
   }
 }
+
+/**
+ * Direct Grant (Resource Owner Password Credentials)
+ * Used for ACTIVE users who already have a password in Keycloak
+ * 
+ * @param {string} username - Keycloak username
+ * @param {string} password - User password
+ * @param {string} clientId - Keycloak client ID
+ * @returns {Promise} Token response { access_token, refresh_token, id_token, expires_in, ... }
+ */
+export async function directGrant(username, password, clientId) {
+  const endpoint = `/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token`;
+  try {
+    console.log(`[KEYCLOAK-REQ] POST ${endpoint} (grant_type: password, username: ${username}) ${getLineNum()}`);
+
+    const resp = await axios.post(
+      `${KEYCLOAK_URL}${endpoint}`,
+      new URLSearchParams({
+        grant_type: 'password',
+        client_id: clientId,
+        username,
+        password,
+        scope: 'openid profile email'
+      }).toString(),
+      {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        timeout: 10000,
+        validateStatus: (s) => s < 500
+      }
+    );
+
+    logKeycloakCall('POST', endpoint, resp.status, `access_token: ${resp.data.access_token ? 'granted' : 'null'}`);
+
+    if (resp.status !== 200 || !resp.data.access_token) {
+      const error = resp.data?.error_description || resp.data?.error || 'Invalid credentials';
+      const statusCode = resp.status === 401 ? 401 : 400;
+      throw {
+        statusCode,
+        error: resp.data?.error || 'invalid_grant',
+        errorDescription: error
+      };
+    }
+
+    return resp.data;
+  } catch (err) {
+    logKeycloakCall('POST', endpoint, err.response?.status || 'ERROR', null, err);
+    throw err;
+  }
+}
+
+/**
+ * Refresh Token Grant
+ * Exchange refresh token for new access token
+ * 
+ * @param {string} refreshToken - Refresh token
+ * @param {string} clientId - Keycloak client ID
+ * @returns {Promise} New token response { access_token, refresh_token, id_token, expires_in, ... }
+ */
+export async function refreshToken(refreshToken, clientId) {
+  const endpoint = `/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token`;
+  try {
+    console.log(`[KEYCLOAK-REQ] POST ${endpoint} (grant_type: refresh_token) ${getLineNum()}`);
+
+    const resp = await axios.post(
+      `${KEYCLOAK_URL}${endpoint}`,
+      new URLSearchParams({
+        grant_type: 'refresh_token',
+        client_id: clientId,
+        refresh_token: refreshToken,
+        scope: 'openid profile email'
+      }).toString(),
+      {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        timeout: 10000,
+        validateStatus: (s) => s < 500
+      }
+    );
+
+    logKeycloakCall('POST', endpoint, resp.status, `access_token: ${resp.data.access_token ? 'granted' : 'null'}`);
+
+    if (resp.status !== 200 || !resp.data.access_token) {
+      const error = resp.data?.error_description || resp.data?.error || 'Token refresh failed';
+      throw {
+        statusCode: 401,
+        error: resp.data?.error || 'invalid_grant',
+        errorDescription: error
+      };
+    }
+
+    return resp.data;
+  } catch (err) {
+    logKeycloakCall('POST', endpoint, err.response?.status || 'ERROR', null, err);
+    throw err;
+  }
+}
+
+/**
+ * Revoke Token
+ * Revoke access or refresh token to log user out
+ * 
+ * @param {string} token - Access or refresh token to revoke
+ * @param {string} clientId - Keycloak client ID
+ * @returns {Promise}
+ */
+export async function revokeToken(token, clientId) {
+  const endpoint = `/realms/${KEYCLOAK_REALM}/protocol/openid-connect/revoke`;
+  try {
+    console.log(`[KEYCLOAK-REQ] POST ${endpoint} (revoke token) ${getLineNum()}`);
+
+    const resp = await axios.post(
+      `${KEYCLOAK_URL}${endpoint}`,
+      new URLSearchParams({
+        client_id: clientId,
+        token
+      }).toString(),
+      {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        timeout: 10000,
+        validateStatus: () => true
+      }
+    );
+
+    logKeycloakCall('POST', endpoint, resp.status, 'Token revoked');
+
+    if (resp.status !== 204 && resp.status !== 200) {
+      console.warn(`[KEYCLOAK] Token revocation returned ${resp.status} ${getLineNum()}`);
+    }
+
+    return resp.data;
+  } catch (err) {
+    logKeycloakCall('POST', endpoint, err.response?.status || 'ERROR', null, err);
+    console.warn(`[KEYCLOAK] Token revocation error ${getLineNum()}:`, err.message);
+    // Don't throw - revocation failures shouldn't block logout
+  }
+}
