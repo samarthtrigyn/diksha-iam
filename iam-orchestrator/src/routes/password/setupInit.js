@@ -6,6 +6,7 @@ import { getAdminToken, upsertKeycloakUserFromIamUser } from '../../services/key
 import { sendOtp } from '../../services/otp.js';
 import mappingStore from '../../stores/mappingStore.js';
 import txnStore from '../../stores/txnStore.js';
+import { validatePasswordSetupInit } from '../../middleware/validation.js';
 
 const router = Router();
 
@@ -23,7 +24,7 @@ const router = Router();
  *   - txnId: transaction ID
  *   - otpResponse: OTP response details
  */
-router.post('/iam/password/setup/init', async (req, res) => {
+router.post('/iam/password/setup/init', validatePasswordSetupInit, async (req, res) => {
   try {
     const { identifier } = req.body;
 

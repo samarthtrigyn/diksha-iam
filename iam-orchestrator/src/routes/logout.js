@@ -9,10 +9,11 @@ import { clearSecureCookie, getSessionIdFromCookie } from '../middleware/secureC
 const router = Router();
 
 // ──────────────────────────────────────────────────────────────────────────────
-// POST /iam/logout
+// POST /iam/auth/logout  (spec-compliant path)
+// POST /iam/logout        (legacy path)
 // Revokes tokens with Keycloak and clears user session
 // ──────────────────────────────────────────────────────────────────────────────
-router.post('/iam/logout', async (req, res) => {
+async function handleLogout(req, res) {
   try {
     const { refreshToken, iamUserId } = req.body;
     const sessionId = getSessionIdFromCookie(req, SESSION_COOKIE_NAME);
@@ -62,6 +63,9 @@ router.post('/iam/logout', async (req, res) => {
     console.error(`[LOGOUT] Error ${getLineNum()}:`, err.message);
     return res.status(500).json({ error: 'Logout failed' });
   }
-});
+}
+
+router.post('/iam/auth/logout', handleLogout);
+router.post('/iam/logout', handleLogout);
 
 export default router;

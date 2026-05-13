@@ -16,6 +16,7 @@ import { setSecureCookie } from '../../middleware/secureCookie.js';
 import txnStore from '../../stores/txnStore.js';
 import mappingStore from '../../stores/mappingStore.js';
 import stateStore from '../../stores/stateStore.js';
+import { validatePasswordSetupComplete } from '../../middleware/validation.js';
 
 const router = Router();
 
@@ -41,7 +42,7 @@ const router = Router();
  * Response (Error):
  *   - error, errorDescription, statusCode
  */
-router.post('/iam/password/setup/complete', async (req, res) => {
+router.post('/iam/password/setup/complete', validatePasswordSetupComplete, async (req, res) => {
   try {
     const { txnId, otp } = req.body;
 

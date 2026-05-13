@@ -9,6 +9,7 @@ import { createSession } from '../../services/session.js';
 import { setSecureCookie } from '../../middleware/secureCookie.js';
 import txnStore from '../../stores/txnStore.js';
 import mappingStore from '../../stores/mappingStore.js';
+import { validateLoginPassword } from '../../middleware/validation.js';
 
 const router = Router();
 
@@ -31,7 +32,7 @@ const router = Router();
  * Response (Error):
  *   - error, errorDescription, statusCode
  */
-router.post('/iam/auth/login/password', async (req, res) => {
+router.post('/iam/auth/login/password', validateLoginPassword, async (req, res) => {
   try {
     const { txnId, password } = req.body;
 

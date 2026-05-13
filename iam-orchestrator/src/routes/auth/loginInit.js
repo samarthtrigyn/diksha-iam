@@ -6,6 +6,7 @@ import { getAdminToken, upsertKeycloakUserFromIamUser } from '../../services/key
 import { sendOtp } from '../../services/otp.js';
 import mappingStore from '../../stores/mappingStore.js';
 import txnStore from '../../stores/txnStore.js';
+import { validateLoginInit } from '../../middleware/validation.js';
 
 const router = Router();
 
@@ -30,7 +31,7 @@ const router = Router();
  *   - txnId: transaction ID
  *   - otpResponse: OTP response details
  */
-router.post('/iam/auth/login/init', async (req, res) => {
+router.post('/iam/auth/login/init', validateLoginInit, async (req, res) => {
   try {
     const { identifier, clientId, redirectUri } = req.body;
 

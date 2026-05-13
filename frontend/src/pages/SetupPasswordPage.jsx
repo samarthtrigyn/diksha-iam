@@ -1,77 +1,52 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import '../styles/SetupPassword.css';
+import { postPasswordSetupInit } from '../utils/api';
 
 export default function SetupPasswordPage() {
   const [searchParams] = useSearchParams();
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const navigate = useNavigate();
+  const [identifier, setIdentifier] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
-  const token = searchParams.get('token');
+  // Legacy: if a token is in the URL, show an error — this flow is no longer supported
+  const legacyToken = searchParams.get('token');
 
   useEffect(() => {
-    if (!token) {
-      setError('Invalid or missing setup token');
+    if (legacyToken) {
+      setError('This setup link has expired. Please use the Login page to restart password setup.');
     }
-  }, [token]);
+  }, [legacyToken]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (!password || !confirmPassword) {
-      setError('Please fill in all fields');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+    if (!identifier.trim()) {
+      setError('Please enter your email or phone number');
       return;
     }
 
     setLoading(true);
 
     try {
-      // Get codeChallenge from sessionStorage (set by VerifyOtpPage)
-      const codeChallenge = sessionStorage.getItem('pkce_challenge');
-      if (!codeChallenge) {
-        setError('Session expired. Please try again.');
-        return;
-      }
+      // Initiate password setup — sends OTP to user
+      const result = await postPasswordSetupInit(identifier.trim());
 
-      const response = await fetch('http://localhost:4000/auth/set-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          setupToken: token,
-          password,
-          codeChallenge
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'Failed to set password');
-        return;
-      }
-
-      if (data.nextAction === 'KEYCLOAK_LOGIN') {
-        // Store auth state and redirect to Keycloak
-        sessionStorage.setItem('oauth_state', data.state);
-        sessionStorage.setItem('setup_token_used', token);
-        window.location.href = data.authUrl;
+      if (result.txnId) {
+        // Navigate to OTP verification page with txnId
+        navigate('/verify-otp', {
+          state: {
+            txnId: result.txnId,
+            maskedIdentifier: result.maskedIdentifier || identifier
+          }
+        });
+      } else {
+        setError('Unexpected response from server');
       }
     } catch (err) {
-      setError('Network error: ' + err.message);
+      setError(err.errorDescription || err.error || err.message || 'Failed to initiate password setup');
     } finally {
       setLoading(false);
     }
@@ -83,43 +58,22 @@ export default function SetupPasswordPage() {
       <div className="setup-password-right">
         <div className="setup-password-form-wrapper">
           <div className="setup-password-header">
-            <h1>Create Password</h1>
-            <p>Set a strong password for your account</p>
+            <h1>Setup Password</h1>
+            <p>Enter your registered email or phone to receive a verification code</p>
           </div>
 
           {error && <div className="setup-password-error">{error}</div>}
 
           <form onSubmit={handleSubmit} className="setup-password-form">
             <div className="setup-password-field">
-              <label>Password</label>
-              <div className="setup-password-input-wrapper">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter password"
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  className="setup-password-toggle"
-                  onClick={() => setShowPassword(!showPassword)}
-                  tabIndex="-1"
-                >
-                  {showPassword ? '🙈' : '👁️'}
-                </button>
-              </div>
-              <small>At least 8 characters</small>
-            </div>
-
-            <div className="setup-password-field">
-              <label>Confirm Password</label>
+              <label>Email or Phone Number</label>
               <input
-                type={showPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm password"
+                type="text"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="Enter email or mobile number"
                 disabled={loading}
+                autoFocus
               />
             </div>
 
@@ -128,17 +82,15 @@ export default function SetupPasswordPage() {
               className="setup-password-button"
               disabled={loading}
             >
-              {loading ? 'Setting up...' : 'Create Password'}
+              {loading ? 'Sending OTP...' : 'Send Verification Code'}
             </button>
           </form>
 
           <div className="setup-password-requirements">
-            <h4>Password Requirements:</h4>
-            <ul>
-              <li>At least 8 characters</li>
-              <li>Mix of uppercase and lowercase letters</li>
-              <li>Include numbers and special characters</li>
-            </ul>
+            <p style={{ fontSize: '14px', color: '#666' }}>
+              We'll send a one-time password to verify your identity. After verification,
+              you'll be redirected to set your password.
+            </p>
           </div>
         </div>
       </div>

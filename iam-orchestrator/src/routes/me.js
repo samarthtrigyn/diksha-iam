@@ -9,13 +9,14 @@ import mappingStore from '../stores/mappingStore.js';
 const router = Router();
 
 // ──────────────────────────────────────────────────────────────────────────────
-// GET /iam/me
+// GET /iam/users/me  (spec-compliant path)
+// GET /iam/me         (legacy path)
 // Returns authenticated user profile and session details
 // Supports:
 //   1. Session cookie (preferred): Reads from sessionId in secure cookie
 //   2. Bearer token: Reads from Authorization header
 // ──────────────────────────────────────────────────────────────────────────────
-router.get('/iam/me', async (req, res) => {
+async function handleMe(req, res) {
   try {
     let userInfo = null;
     let activationStatus = 'ACTIVE';
@@ -122,6 +123,9 @@ router.get('/iam/me', async (req, res) => {
     console.error(`[ME] Error ${getLineNum()}:`, err.message);
     return res.status(500).json({ error: 'Internal server error' });
   }
-});
+}
+
+router.get('/iam/users/me', handleMe);
+router.get('/iam/me', handleMe);
 
 export default router;

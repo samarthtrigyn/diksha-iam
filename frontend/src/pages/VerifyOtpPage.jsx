@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { postVerifyOtp } from '../utils/api';
+import { postPasswordSetupComplete } from '../utils/api';
 
 export default function VerifyOtpPage() {
   const location = useLocation();
@@ -40,8 +40,8 @@ export default function VerifyOtpPage() {
 
       console.log('[VerifyOTP] Submitting OTP verification', { txnId });
 
-      // Verify OTP (server generates PKCE and returns authUrl)
-      const result = await postVerifyOtp(txnId, otp);
+      // Verify OTP and complete password setup — server generates PKCE + activation URL
+      const result = await postPasswordSetupComplete(txnId, otp);
 
       console.log('[VerifyOTP] Response:', result);
 
@@ -51,8 +51,8 @@ export default function VerifyOtpPage() {
         return;
       }
 
-      if (result.flow === 'SET_PASSWORD') {
-        // Redirect to Keycloak with server-side PKCE
+      if (result.flow === 'ACTIVATION_REQUIRED' || result.flow === 'SET_PASSWORD') {
+        // Redirect to Keycloak activation/set-password page with server-side PKCE
         console.log('[VerifyOTP] Redirecting to Keycloak authorization');
         
         if (!result.authUrl) {

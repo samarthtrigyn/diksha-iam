@@ -3,7 +3,7 @@ import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import {
   ORCHESTRATOR_URL, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
-  FRONTEND_REDIRECT_URI, IAM_SERVICE_URL
+  FRONTEND_REDIRECT_URI, IAM_SERVICE_URL, SESSION_TTL, SESSION_COOKIE_NAME
 } from '../config/index.js';
 import { getLineNum } from '../utils/helpers.js';
 import { validateTokenClaims } from '../utils/token.js';
@@ -14,6 +14,8 @@ import {
 } from '../services/sso.js';
 import mappingStore from '../stores/mappingStore.js';
 import stateStore from '../stores/stateStore.js';
+import { createSession } from '../services/session.js';
+import { setSecureCookie } from '../middleware/secureCookie.js';
 
 const router = Router();
 
@@ -203,50 +205,37 @@ router.get('/iam/sso/:provider/callback', async (req, res) => {
 
     console.log(`[SSO-CALLBACK] Updated mapping to ACTIVE for ${user.id}, ssoProvider: ${provider} ${getLineNum()}`);
 
-    // Get tokens from Keycloak via service account
-    let kcTokenResp;
-    try {
-      // Note: This gets admin tokens, not user-specific tokens
-      // In production, use OpenID Connect userinfo endpoint or impersonation
-      const adminTokenData = await getAdminToken();
-      kcTokenResp = { data: { access_token: adminTokenData } };
-      console.log(`[SSO-CALLBACK] Got Keycloak tokens ${getLineNum()}`);
-    } catch (kcErr) {
-      console.warn(`[SSO-CALLBACK] Failed to get Keycloak tokens ${getLineNum()}:`, kcErr.message);
-      kcTokenResp = { data: { access_token: null, id_token: null } };
-    }
-
-    // Build session response
-    const sessionContext = {
-      flow: 'AUTHENTICATED',
-      ssoAction: action, // 'EXISTING', 'LINKED', or 'CREATED'
-      ssoProvider: provider,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        name: user.firstname && user.lastname ? `${user.firstname} ${user.lastname}` : user.firstname || '',
-        iamUserId: user.id
-      },
-      tokens: {
-        accessToken: kcTokenResp.data.access_token,
-        idToken: kcTokenResp.data.id_token,
-        refreshToken: kcTokenResp.data.refresh_token,
-        expiresIn: kcTokenResp.data.expires_in,
-        tokenType: 'Bearer'
-      },
-      activationStatus: 'ACTIVE'
-    };
-
     // Clean up state
     await stateStore.delete(state);
 
+    // Create an application session for the SSO user.
+    // Note: SSO users authenticated via external IdP do not produce a Keycloak
+    // access_token in this flow, so we store minimal session data; the session
+    // acts as the authoritative application session (cookie-based).
+    const sessionTokens = {
+      accessToken: null,
+      idToken: null,
+      refreshToken: null,
+      expiresIn: null,
+      tokenType: 'Bearer'
+    };
+
+    const session = await createSession(user.id, user.username, sessionTokens, SESSION_TTL);
+    const sessionId = session.sessionId;
+    console.log(`[SSO-CALLBACK] Session created: ${sessionId} ${getLineNum()}`);
+
+    // Set HttpOnly secure cookie with sessionId
+    setSecureCookie(res, SESSION_COOKIE_NAME, sessionId, {
+      maxAge: SESSION_TTL * 1000,
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      sameSite: 'Strict'
+    });
+
     console.log(`[SSO-CALLBACK] SSO authentication successful for ${provider}, action: ${action} ${getLineNum()}`);
 
-    // Encode session context as base64 and redirect to frontend callback
-    const sessionB64 = Buffer.from(JSON.stringify(sessionContext)).toString('base64url');
-    const frontendCallbackUrl = `${stateData.redirectUri}?sso_session=${sessionB64}`;
-
+    // Redirect to frontend callback page — no tokens in URL, session in cookie
+    const frontendCallbackUrl = `${stateData.redirectUri}?sso_success=true&provider=${provider}`;
     console.log(`[SSO-CALLBACK] Redirecting to frontend: ${stateData.redirectUri} ${getLineNum()}`);
     return res.redirect(frontendCallbackUrl);
   } catch (err) {

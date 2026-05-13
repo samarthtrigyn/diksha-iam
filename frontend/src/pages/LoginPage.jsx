@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { postLoginStart, setAuthToken } from '../utils/api';
+import { postLoginInit, postLoginPassword } from '../utils/api';
 
 const ORCHESTRATOR_URL = import.meta.env.VITE_ORCHESTRATOR_URL || 'http://localhost:4000';
 
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [txnId, setTxnId] = useState('');
+  const [step, setStep] = useState('identifier'); // 'identifier' | 'password'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -84,47 +86,57 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Validate input
       if (!identifier.trim()) {
         setError('Please enter email, phone, or username');
         setLoading(false);
         return;
       }
 
-      // Store identifier in sessionStorage for reference
-      sessionStorage.setItem('login_identifier', identifier);
+      if (step === 'identifier') {
+        // ── STEP 1: Initiate login, determine flow ──
+        const result = await postLoginInit(identifier.trim());
+        console.log('[LoginPage] Login init result:', result);
 
-      // Call IAM login start
-      const result = await postLoginStart(identifier, password);
-
-      console.log('[LoginPage] Login result:', result);
-
-      if (result.flow === 'USER_NOT_FOUND') {
-        setError('User not found. Please check your email, phone, or username.');
-      } else if (result.flow === 'PASSWORD_REQUIRED') {
-        setError('Please enter your password.');
-      } else if (result.flow === 'OTP_VERIFICATION') {
-        // New/unactivated user – proceed to OTP verification
-        sessionStorage.setItem('txnId', result.txnId);
-        navigate('/verify-otp', {
-          state: {
-            txnId: result.txnId,
-            maskedIdentifier: result.maskedIdentifier
-          }
-        });
-      } else if (result.flow === 'AUTHENTICATED') {
-        // Active user – Direct Grant succeeded, store tokens and go to dashboard
-        setAuthToken(result.tokens.accessToken);
-        sessionStorage.setItem('access_token', result.tokens.accessToken);
-        sessionStorage.setItem('token_decoded', JSON.stringify(result.user));
-        sessionStorage.setItem('user_profile', JSON.stringify(result.user));
-        navigate('/dashboard');
+        if (result.flow === 'DIRECT_GRANT') {
+          // Active user – show password field
+          setTxnId(result.txnId);
+          setStep('password');
+        } else if (result.flow === 'OTP_VERIFICATION') {
+          // New/unactivated user – go to OTP page
+          sessionStorage.setItem('txnId', result.txnId);
+          navigate('/verify-otp', {
+            state: { txnId: result.txnId, maskedIdentifier: result.maskedIdentifier }
+          });
+        } else {
+          setError('Unexpected response from server: ' + (result.flow || 'unknown'));
+        }
       } else {
-        setError('Unexpected response from server: ' + (result.flow || 'unknown'));
+        // ── STEP 2: Submit password for DIRECT_GRANT flow ──
+        if (!password) {
+          setError('Please enter your password');
+          setLoading(false);
+          return;
+        }
+
+        const result = await postLoginPassword(txnId, password);
+        console.log('[LoginPage] Login password result:', result);
+
+        if (result.activationStatus === 'ACTIVE' || result.user) {
+          // Session is now in HttpOnly cookie — no need to store tokens in sessionStorage
+          navigate('/dashboard');
+        } else {
+          setError('Login failed. Please try again.');
+        }
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.error || err.message || 'An error occurred during login');
+      if (err.error === 'user_not_found') {
+        setError('User not found. Please check your email, phone, or username.');
+      } else if (err.error === 'invalid_credentials') {
+        setError('Incorrect password. Please try again.');
+      } else {
+        setError(err.errorDescription || err.error || err.message || 'An error occurred during login');
+      }
     } finally {
       setLoading(false);
     }
@@ -165,25 +177,28 @@ export default function LoginPage() {
                 placeholder="enter DIKSHA ID, email, or mobile number"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                disabled={loading}
+                disabled={loading || step === 'password'}
                 autoFocus
               />
             </div>
 
-            <div className="form-group">
-              <label htmlFor="password">Enter Your Password*</label>
-              <div className="form-group-wrapper">
-                <input
-                  id="password"
-                  type="password"
-                  placeholder="enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                />
-                <span className="password-toggle">👁️</span>
+            {step === 'password' && (
+              <div className="form-group">
+                <label htmlFor="password">Enter Your Password*</label>
+                <div className="form-group-wrapper">
+                  <input
+                    id="password"
+                    type="password"
+                    placeholder="enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                    autoFocus
+                  />
+                  <span className="password-toggle">👁️</span>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="form-footer">
               <label>
@@ -193,7 +208,7 @@ export default function LoginPage() {
             </div>
 
             <button type="submit" disabled={loading}>
-              {loading ? 'Logging in...' : 'Login'}
+              {loading ? 'Logging in...' : step === 'identifier' ? 'Continue' : 'Login'}
             </button>
 
             <button

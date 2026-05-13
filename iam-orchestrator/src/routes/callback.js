@@ -15,12 +15,15 @@ import stateStore from '../stores/stateStore.js';
 const router = Router();
 
 // ──────────────────────────────────────────────────────────────────────────────
-// POST /iam/auth/callback
+// GET /iam/auth/callback  (Keycloak redirects here with ?code=&state=)
+// POST /iam/auth/callback (legacy: frontend posts code+state in body)
 // Orchestrator-mediated authorization code exchange
 // ──────────────────────────────────────────────────────────────────────────────
-router.post('/iam/auth/callback', async (req, res) => {
+async function handleCallback(req, res) {
   try {
-    const { code, state } = req.body;
+    // Support both GET (query params) and POST (body)
+    const code  = req.query.code  || req.body?.code;
+    const state = req.query.state || req.body?.state;
 
     if (!code || !state) {
       return res.status(400).json({ error: 'code and state are required' });
@@ -177,6 +180,9 @@ router.post('/iam/auth/callback', async (req, res) => {
     console.error(`[CALLBACK] Unexpected error ${getLineNum()}:`, err.message);
     return res.status(500).json({ error: 'Internal server error' });
   }
-});
+}
+
+router.get('/iam/auth/callback', handleCallback);
+router.post('/iam/auth/callback', handleCallback);
 
 export default router;
