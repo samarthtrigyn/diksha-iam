@@ -2,8 +2,11 @@ import { getRedisClient } from './redis.js';
 import { getLineNum } from '../utils/helpers.js';
 
 /**
- * Store state data indexed by state
- * state:{state} → { identifier, iamUserId, codeVerifier, nonce, activationStatus, expiresAt }
+ * Store state data indexed by state (generated at authorize time, not loginInit time)
+ * state:{state} → { txnId, expiresAt }
+ * Simplified from old schema that stored full PKCE data.
+ * PKCE verifier/nonce/activationToken now stored in txnStore, retrieved via txnId.
+ * TTL: 10 minutes
  */
 const stateStore = {
   async get(state) {

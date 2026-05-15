@@ -95,3 +95,65 @@ export function validatePasswordSetupComplete(req, res, next) {
   }
   next();
 }
+
+/**
+ * Validate POST /iam/auth/otp/verify
+ */
+export function validateOtpVerify(req, res, next) {
+  const { txnId, otp } = req.body;
+  const errors = [];
+  if (!txnId || typeof txnId !== 'string') errors.push('txnId');
+  if (!otp || typeof otp !== 'string') errors.push('otp');
+  if (errors.length) {
+    return res.status(400).json({
+      error: 'invalid_request',
+      errorDescription: `${errors.join(', ')} ${errors.length > 1 ? 'are' : 'is'} required`,
+      statusCode: 400,
+      timestamp: new Date().toISOString()
+    });
+  }
+  if (!/^\d{4,8}$/.test(otp)) {
+    return res.status(400).json({
+      error: 'invalid_request',
+      errorDescription: 'otp must be 4-8 digits',
+      statusCode: 400,
+      timestamp: new Date().toISOString()
+    });
+  }
+  next();
+}
+
+/**
+ * Validate GET /iam/oauth2/authorize
+ */
+export function validateAuthorize(req, res, next) {
+  const { txnId } = req.query;
+  if (!txnId || typeof txnId !== 'string') {
+    return res.status(400).json({
+      error: 'invalid_request',
+      errorDescription: 'txnId is required in query params',
+      statusCode: 400,
+      timestamp: new Date().toISOString()
+    });
+  }
+  next();
+}
+
+/**
+ * Validate POST /iam/auth/session/exchange
+ */
+export function validateSessionExchange(req, res, next) {
+  const { clientId, sessionCode } = req.body;
+  const errors = [];
+  if (!clientId || typeof clientId !== 'string') errors.push('clientId');
+  if (!sessionCode || typeof sessionCode !== 'string') errors.push('sessionCode');
+  if (errors.length) {
+    return res.status(400).json({
+      error: 'invalid_request',
+      errorDescription: `${errors.join(', ')} ${errors.length > 1 ? 'are' : 'is'} required`,
+      statusCode: 400,
+      timestamp: new Date().toISOString()
+    });
+  }
+  next();
+}

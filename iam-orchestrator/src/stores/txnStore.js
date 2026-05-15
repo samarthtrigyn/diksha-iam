@@ -3,7 +3,16 @@ import { getLineNum } from '../utils/helpers.js';
 
 /**
  * Store transaction data indexed by txnId
- * txn:{txnId} → { identifier, iamUserId, codeVerifier, codeChallenge, redirectUri, clientId, expiresAt }
+ * txn:{txnId} → {
+ *   identifier, iamUserId, username,
+ *   flow: 'ACTIVE_USER' | 'FIRST_TIME_USER',
+ *   status: 'OTP_SENT' | 'OTP_VERIFIED' | 'LOGIN_ALLOWED' | 'IAM_AUTHORIZE_READY' | 'IAM_SESSION_CREATED' | 'COMPLETED',
+ *   clientId, redirectUri, channel: 'WEB' | 'MOBILE',
+ *   codeVerifier, codeChallenge, nonce,
+ *   activationToken (for first-time users),
+ *   expiresAt
+ * }
+ * TTL: 10 minutes
  */
 const txnStore = {
   async get(txnId) {

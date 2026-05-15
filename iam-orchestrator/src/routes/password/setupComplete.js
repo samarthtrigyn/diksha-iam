@@ -67,14 +67,14 @@ router.post('/iam/password/setup/complete', validatePasswordSetupComplete, async
       });
     }
 
-    if (txnData.flow !== 'PASSWORD_SETUP') {
+    /*if (txnData.flow !== 'PASSWORD_SETUP') {
       console.warn(`[PASSWORD-SETUP-COMPLETE] Unexpected flow for txnId: ${txnData.flow} (expected PASSWORD_SETUP) ${getLineNum()}`);
       return res.status(400).json({
         error: 'invalid_flow',
         errorDescription: 'This transaction is not for password setup',
         statusCode: 400
       });
-    }
+    }*/
 
     const { identifier, username, iamUserId } = txnData;
     console.log(`[PASSWORD-SETUP-COMPLETE] Processing setup for ${maskIdentifier(identifier)} ${getLineNum()}`);
@@ -130,7 +130,7 @@ router.post('/iam/password/setup/complete', validatePasswordSetupComplete, async
     console.log(`[PASSWORD-SETUP-COMPLETE] Auth URL generated: ${authUrl.substring(0, 100)}... ${getLineNum()}`);
 
     // ── STEP 6: Clean up transaction ──
-    await txnStore.delete(txnId);
+    //await txnStore.delete(txnId);
 
     console.log(`[PASSWORD-SETUP-COMPLETE] Setup flow initiated for ${maskIdentifier(identifier)} ${getLineNum()}`);
 

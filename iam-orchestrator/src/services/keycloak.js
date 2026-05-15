@@ -91,6 +91,7 @@ export async function upsertKeycloakUserFromIamUser(iamUser, adminToken) {
       const kcUserId = existing.id;
 
       console.log(`[KEYCLOAK] User exists: ${username} (${kcUserId}), updating attributes ${getLineNum()}`);
+      console.log(`[KEYCLOAK] ${JSON.stringify(existing)} ${getLineNum()}`);
 
       // Ensure UPDATE_PASSWORD action, remove VERIFY_PROFILE and UPDATE_PROFILE (we populate names from user service)
       const actions = Array.from(
@@ -105,7 +106,8 @@ export async function upsertKeycloakUserFromIamUser(iamUser, adminToken) {
         lastName: lastName || existing.lastName,
         email: email || existing.email || '',  // Always include email from IAM (trust as source of truth)
         enabled: true,
-        emailVerified: true,  // Trust IAM as source of truth
+        emailVerified: true,
+        username,  // Trust IAM as source of truth
         requiredActions: actions,
         attributes: {
           iamUserId: [userId],

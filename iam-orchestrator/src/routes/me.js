@@ -20,6 +20,8 @@ async function handleMe(req, res) {
   try {
     let userInfo = null;
     let activationStatus = 'ACTIVE';
+    let loginProvider = 'KEYCLOAK';
+    let org = { orgId: null, orgName: null };
 
     // ── STEP 1: Try to get session from secure cookie ──
     const sessionId = getSessionIdFromCookie(req, SESSION_COOKIE_NAME);
@@ -31,14 +33,13 @@ async function handleMe(req, res) {
         console.log(`[ME] Session retrieved for user: ${session.iamUserId} ${getLineNum()}`);
 
         userInfo = {
-          id: session.iamUserId, // Keycloak subject
+          userId: session.iamUserId,
           username: session.username,
-          email: '', // Would need to decode ID token to get email
+          email: '',
           name: '',
-          iamUserId: session.iamUserId,
-          sessionId,
           roles: [],
-          clientRoles: [],
+          loginProvider,
+          org,
           source: 'session'
         };
 
@@ -52,11 +53,14 @@ async function handleMe(req, res) {
           console.warn(`[ME] Failed to retrieve mapping ${getLineNum()}:`, mapErr.message);
         }
 
-        console.log(`[ME] Returning user info from session for ${session.username}, status: ${activationStatus} ${getLineNum()}`);
+        console.log(
+          `[ME] Returning user info from session for ${session.username}, status: ${activationStatus} ${getLineNum()}`
+        );
 
-        return res.json({
+        return res.status(200).json({
           ...userInfo,
-          activationStatus
+          status: activationStatus,
+          timestamp: new Date().toISOString()
         });
       }
     }
@@ -67,7 +71,8 @@ async function handleMe(req, res) {
       return res.status(401).json({
         error: 'unauthorized',
         errorDescription: 'Missing session or Authorization header',
-        statusCode: 401
+        statusCode: 401,
+        timestamp: new Date().toISOString()
       });
     }
 
@@ -75,13 +80,19 @@ async function handleMe(req, res) {
     let payload;
     try {
       payload = validateTokenClaims(token, null, null, null);
-      console.log(`[ME] Bearer token validated, sub: ${payload.sub}, username: ${payload.preferred_username} ${getLineNum()}`);
+      console.log(
+        `[ME] Bearer token validated, sub: ${payload.sub}, username: ${payload.preferred_username} ${getLineNum()}`
+      );
     } catch (validateErr) {
-      console.warn(`[ME] Bearer token validation failed ${getLineNum()}:`, validateErr.message);
+      console.warn(
+        `[ME] Bearer token validation failed ${getLineNum()}:`,
+        validateErr.message
+      );
       return res.status(401).json({
         error: 'unauthorized',
         errorDescription: 'Invalid or expired token',
-        statusCode: 401
+        statusCode: 401,
+        timestamp: new Date().toISOString()
       });
     }
 
@@ -89,13 +100,13 @@ async function handleMe(req, res) {
     const iamUserId = payload.iamUserId || payload.iam_user_id || payload.sunbirdUserId || payload.sunbird_user_id;
 
     userInfo = {
-      id: payload.sub,
-      email: payload.email,
+      userId: iamUserId,
       username: payload.preferred_username,
-      name: payload.name,
-      iamUserId,
+      email: payload.email || '',
+      name: payload.name || '',
       roles: payload.realm_access?.roles || [],
-      clientRoles: payload.resource_access?.[KEYCLOAK_CLIENT_ID]?.roles || [],
+      loginProvider,
+      org,
       source: 'bearer_token'
     };
 
@@ -105,23 +116,33 @@ async function handleMe(req, res) {
         const mapping = await mappingStore.get(iamUserId);
         if (mapping) {
           activationStatus = mapping.activationStatus || 'ACTIVE';
-          console.log(`[ME] Retrieved activation status from mapping: ${activationStatus} ${getLineNum()}`);
+          console.log(
+            `[ME] Retrieved activation status from mapping: ${activationStatus} ${getLineNum()}`
+          );
         }
       } catch (mapErr) {
         console.warn(`[ME] Failed to retrieve mapping ${getLineNum()}:`, mapErr.message);
       }
     }
 
-    console.log(`[ME] Returning user info from token for ${payload.preferred_username}, iamUserId: ${iamUserId}, status: ${activationStatus} ${getLineNum()}`);
+    console.log(
+      `[ME] Returning user info from token for ${payload.preferred_username}, iamUserId: ${iamUserId}, status: ${activationStatus} ${getLineNum()}`
+    );
 
-    return res.json({
+    return res.status(200).json({
       ...userInfo,
-      activationStatus
+      status: activationStatus,
+      timestamp: new Date().toISOString()
     });
 
   } catch (err) {
     console.error(`[ME] Error ${getLineNum()}:`, err.message);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({
+      error: 'server_error',
+      errorDescription: 'Internal server error',
+      statusCode: 500,
+      timestamp: new Date().toISOString()
+    });
   }
 }
 

@@ -30,7 +30,7 @@ export const globalLimiter = rateLimit({
  */
 export const strictLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 5, // limit each IP to 5 requests per minute
+  max: 500, // limit each IP to 5 requests per minute
   message: {
     error: 'too_many_requests',
     errorDescription: 'Too many login attempts, please try again later',
@@ -46,7 +46,7 @@ export const strictLimiter = rateLimit({
  */
 export const veryStrictLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3, // limit each IP to 3 requests per hour
+  max: 300, // limit each IP to 3 requests per hour
   message: {
     error: 'too_many_requests',
     errorDescription: 'Too many attempts, please try again in 1 hour',

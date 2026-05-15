@@ -19,6 +19,10 @@ import ssoRouter from './routes/sso.js';
 import tokenExchangeRouter from './routes/tokenExchange.js';
 // Auth routes (new OIDC contract)
 import loginInitRouter from './routes/auth/loginInit.js';
+import otpVerifyRouter from './routes/auth/otpVerify.js';
+import authorizeRouter from './routes/auth/authorize.js';
+import sessionExchangeRouter from './routes/auth/sessionExchange.js';
+import loginVerifyOtpRouter from './routes/auth/loginVerifyOtp.js';
 import loginPasswordRouter from './routes/auth/loginPassword.js';
 import refreshRouter from './routes/auth/refresh.js';
 // Password setup routes
@@ -63,14 +67,21 @@ app.use(tokenExchangeRouter);
 // Apply strict rate limiting to sensitive login endpoints
 app.use('/iam/auth/login/init', strictLimiter);
 app.use('/iam/auth/login/password', strictLimiter);
+app.use('/iam/oauth2/authorize', strictLimiter);
 
-// Apply very strict rate limiting to OTP and password setup endpoints
+// Apply very strict rate limiting to OTP and session exchange endpoints
+app.use('/iam/auth/otp/verify', veryStrictLimiter);
+app.use('/iam/auth/session/exchange', veryStrictLimiter);
 app.use('/iam/password/setup/init', veryStrictLimiter);
 app.use('/iam/password/setup/complete', veryStrictLimiter);
 
 // Register routers
 app.use(loginInitRouter);
+app.use(otpVerifyRouter);
+app.use(authorizeRouter);
+app.use(sessionExchangeRouter);
 app.use(loginPasswordRouter);
+app.use(loginVerifyOtpRouter);
 app.use(refreshRouter);
 app.use(passwordSetupInitRouter);
 app.use(passwordSetupCompleteRouter);

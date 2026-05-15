@@ -13,33 +13,47 @@ const router = Router();
 /**
  * POST /iam/auth/refresh
  * 
- * Refresh access token using refresh token
- * Refresh token can be provided via:
- *   1. Secure HttpOnly cookie (preferred)
- *   2. Request body refreshToken field
+ * Refresh access token using refresh token.
+ * Supports both cookie-based and explicit refresh token.
  * 
  * Request:
+ *   - clientId (optional): Client ID for validation (if provided)
  *   - refreshToken (optional): Explicit refresh token (if not using cookie)
  * 
  * Response (Success):
- *   - accessToken: New access token
- *   - expiresIn: Token expiry in seconds
+ *   {
+ *     "accessToken": "...",
+ *     "idToken": "...",
+ *     "refreshToken": "...",
+ *     "expiresIn": 1800,
+ *     "tokenType": "Bearer"
+ *   }
  * 
  * Response (Error):
- *   - error, errorDescription, statusCode
+ *   {
+ *     "error": "...",
+ *     "errorDescription": "...",
+ *     "statusCode": 400/401/500
+ *   }
  */
 router.post('/iam/auth/refresh', async (req, res) => {
   try {
+    const { clientId, refreshToken: explicitRefreshToken } = req.body;
+
+    console.log(
+      `[AUTH-REFRESH] clientId: ${clientId || 'not provided'} ${getLineNum()}`
+    );
+
     // ── STEP 1: Get session from cookie or explicit refresh token ──
     const sessionId = getSessionIdFromCookie(req, SESSION_COOKIE_NAME);
-    const explicitRefreshToken = req.body?.refreshToken;
 
     if (!sessionId && !explicitRefreshToken) {
       console.warn(`[AUTH-REFRESH] No session or refresh token provided ${getLineNum()}`);
       return res.status(401).json({
         error: 'unauthorized',
         errorDescription: 'No session or refresh token provided',
-        statusCode: 401
+        statusCode: 401,
+        timestamp: new Date().toISOString()
       });
     }
 
@@ -54,7 +68,8 @@ router.post('/iam/auth/refresh', async (req, res) => {
         return res.status(401).json({
           error: 'unauthorized',
           errorDescription: 'Session expired or invalid',
-          statusCode: 401
+          statusCode: 401,
+          timestamp: new Date().toISOString()
         });
       }
       refreshToken = session.refreshToken;
@@ -84,7 +99,8 @@ router.post('/iam/auth/refresh', async (req, res) => {
       return res.status(statusCode).json({
         error,
         errorDescription,
-        statusCode
+        statusCode,
+        timestamp: new Date().toISOString()
       });
     }
 
@@ -103,7 +119,8 @@ router.post('/iam/auth/refresh', async (req, res) => {
       return res.status(401).json({
         error: 'invalid_token',
         errorDescription: `Token validation failed: ${validateErr.message}`,
-        statusCode: 401
+        statusCode: 401,
+        timestamp: new Date().toISOString()
       });
     }
 
@@ -132,14 +149,15 @@ router.post('/iam/auth/refresh', async (req, res) => {
         return res.status(500).json({
           error: 'server_error',
           errorDescription: 'Failed to update session',
-          statusCode: 500
+          statusCode: 500,
+          timestamp: new Date().toISOString()
         });
       }
     }
 
     console.log(`[AUTH-REFRESH] Token refresh completed ${getLineNum()}`);
 
-    return res.json({
+    return res.status(200).json({
       accessToken: tokenResp.access_token,
       idToken: tokenResp.id_token,
       refreshToken: tokenResp.refresh_token || refreshToken,
@@ -152,7 +170,8 @@ router.post('/iam/auth/refresh', async (req, res) => {
     return res.status(500).json({
       error: 'server_error',
       errorDescription: 'Internal server error',
-      statusCode: 500
+      statusCode: 500,
+      timestamp: new Date().toISOString()
     });
   }
 });

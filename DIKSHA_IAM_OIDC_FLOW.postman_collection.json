@@ -1,0 +1,893 @@
+{
+  "info": {
+    "name": "DIKSHA IAM Orchestration API",
+    "description": "Complete OIDC-based authentication flow with OTP verification, PKCE, and session management",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "http://localhost:4000",
+      "type": "string"
+    },
+    {
+      "key": "KEYCLOAK_URL",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "CLIENT_ID",
+      "value": "diksha-portal",
+      "type": "string"
+    },
+    {
+      "key": "CLIENT_ID_MOBILE",
+      "value": "diksha-mobile",
+      "type": "string"
+    },
+    {
+      "key": "REDIRECT_URI",
+      "value": "http://localhost:5173/auth/callback",
+      "type": "string"
+    },
+    {
+      "key": "REDIRECT_URI_MOBILE",
+      "value": "diksha://auth/callback",
+      "type": "string"
+    },
+    {
+      "key": "TXN_ID",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "SESSION_CODE",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ACCESS_TOKEN",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "REFRESH_TOKEN",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01. Flow - Existing User (Web)",
+      "description": "Complete login flow for ACTIVE user via web",
+      "item": [
+        {
+          "name": "1.1. Login Init (Existing User)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"testuser@example.com\",\n  \"clientId\": \"{{CLIENT_ID}}\",\n  \"redirectUri\": \"{{REDIRECT_URI}}\",\n  \"channel\": \"WEB\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/iam/auth/login/init",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "auth", "login", "init"]
+            },
+            "description": "Start login for existing ACTIVE user. Returns status=LOGIN_ALLOWED with authorize redirect URL."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 200', () => expect(bru.getStatus()).to.equal(200));",
+                  "const b = bru.getBody();",
+                  "bru.test('Has txnId', () => expect(b).to.have.property('txnId'));",
+                  "bru.test('Has status LOGIN_ALLOWED', () => expect(b.status).to.equal('LOGIN_ALLOWED'));",
+                  "bru.test('Has redirectUrl', () => expect(b).to.have.property('redirectUrl'));",
+                  "if (b.txnId) bru.setVar('TXN_ID', b.txnId);",
+                  "console.log('txnId:', b.txnId, '| status:', b.status);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "1.2. OAuth2 Authorize",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/iam/oauth2/authorize?txnId={{TXN_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "oauth2", "authorize"],
+              "query": [
+                {
+                  "key": "txnId",
+                  "value": "{{TXN_ID}}"
+                }
+              ]
+            },
+            "description": "Bridge endpoint that redirects to Keycloak. Returns 302 redirect to Keycloak authorization URL. In manual testing, extract code & state from Keycloak redirect."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 302 (redirect)', () => expect(bru.getStatus()).to.equal(302));",
+                  "bru.test('Has Location header', () => expect(bru.getResponse().headers).to.have.property('Location'));",
+                  "const location = bru.getResponse().headers.Location || '';",
+                  "bru.test('Location contains Keycloak URL', () => expect(location).to.include('keycloak'));",
+                  "bru.test('Location contains client_id', () => expect(location).to.include('client_id'));",
+                  "console.log('Redirect location:', location);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "1.3. Keycloak Callback (Simulated)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/iam/auth/callback?code=test_auth_code_12345&state=test_state_67890",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "auth", "callback"],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "test_auth_code_12345"
+                },
+                {
+                  "key": "state",
+                  "value": "test_state_67890"
+                }
+              ]
+            },
+            "description": "Keycloak redirects back with code & state. Orchestrator exchanges code for tokens and sets session cookie. Redirects to original redirectUri."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 200 or 302', () => expect(bru.getStatus()).to.be.oneOf([200, 302]));",
+                  "const b = bru.getBody();",
+                  "bru.test('Has sessionId', () => expect(b).to.have.property('sessionId'));",
+                  "bru.test('Has tokens', () => expect(b).to.have.property('tokens'));",
+                  "bru.test('Has user', () => expect(b).to.have.property('user'));",
+                  "if (b.sessionId) bru.setVar('SESSION_ID', b.sessionId);",
+                  "if (b.tokens?.accessToken) bru.setVar('ACCESS_TOKEN', b.tokens.accessToken);",
+                  "if (b.tokens?.refreshToken) bru.setVar('REFRESH_TOKEN', b.tokens.refreshToken);",
+                  "console.log('sessionId:', b.sessionId, '| user:', b.user?.username);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "1.4. Get User (Me) - Cookie Auth",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/iam/users/me",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "users", "me"]
+            },
+            "description": "Retrieve authenticated user profile using session cookie. Returns user info with loginProvider='KEYCLOAK' and org details."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 200', () => expect(bru.getStatus()).to.equal(200));",
+                  "const b = bru.getBody();",
+                  "bru.test('Has userId', () => expect(b.userId || b.id).to.be.ok);",
+                  "bru.test('Has username', () => expect(b).to.have.property('username'));",
+                  "bru.test('Has status', () => expect(b).to.have.property('status'));",
+                  "bru.test('loginProvider is KEYCLOAK', () => expect(b.loginProvider).to.equal('KEYCLOAK'));",
+                  "console.log('User:', JSON.stringify(b, null, 2));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02. Flow - First-Time User (Mobile)",
+      "description": "Complete login flow for NEW/first-time user via mobile with OTP",
+      "item": [
+        {
+          "name": "2.1. Login Init (First-Time User)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"9876543210\",\n  \"clientId\": \"{{CLIENT_ID_MOBILE}}\",\n  \"redirectUri\": \"{{REDIRECT_URI_MOBILE}}\",\n  \"channel\": \"MOBILE\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/iam/auth/login/init",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "auth", "login", "init"]
+            },
+            "description": "Start login for NEW/first-time user. Sends OTP and returns status=OTP_SENT with txnId. Mobile channel detected from redirectUri scheme."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 200', () => expect(bru.getStatus()).to.equal(200));",
+                  "const b = bru.getBody();",
+                  "bru.test('Has txnId', () => expect(b).to.have.property('txnId'));",
+                  "bru.test('Has status OTP_SENT', () => expect(b.status).to.equal('OTP_SENT'));",
+                  "bru.test('Has maskedIdentifier', () => expect(b).to.have.property('maskedIdentifier'));",
+                  "bru.test('Has flow FIRST_TIME_USER', () => expect(b.flow).to.equal('FIRST_TIME_USER'));",
+                  "if (b.txnId) bru.setVar('TXN_ID', b.txnId);",
+                  "console.log('txnId:', b.txnId, '| status:', b.status, '| masked:', b.maskedIdentifier);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "2.2. Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{TXN_ID}}\",\n  \"otp\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/iam/auth/otp/verify",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "auth", "otp", "verify"]
+            },
+            "description": "Verify OTP for first-time user. Generates PKCE, nonce, and activation_token. Returns authorize redirect URL."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 200', () => expect(bru.getStatus()).to.equal(200));",
+                  "const b = bru.getBody();",
+                  "bru.test('Has status OTP_VERIFIED', () => expect(b.status).to.equal('OTP_VERIFIED'));",
+                  "bru.test('Has txnId', () => expect(b).to.have.property('txnId'));",
+                  "bru.test('Has redirectUrl', () => expect(b).to.have.property('redirectUrl'));",
+                  "bru.test('Has nextStep', () => expect(b.nextStep).to.equal('REDIRECT'));",
+                  "if (b.txnId) bru.setVar('TXN_ID', b.txnId);",
+                  "console.log('OTP verified | txnId:', b.txnId, '| status:', b.status);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "2.3. OAuth2 Authorize (with activation_token)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/iam/oauth2/authorize?txnId={{TXN_ID}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "oauth2", "authorize"],
+              "query": [
+                {
+                  "key": "txnId",
+                  "value": "{{TXN_ID}}"
+                }
+              ]
+            },
+            "description": "Redirect to Keycloak with activation_token. Keycloak validates activation_token and shows password creation form for first-time users."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 302 (redirect)', () => expect(bru.getStatus()).to.equal(302));",
+                  "bru.test('Has Location header', () => expect(bru.getResponse().headers).to.have.property('Location'));",
+                  "const location = bru.getResponse().headers.Location || '';",
+                  "bru.test('Location contains activation_token', () => expect(location).to.include('activation_token'));",
+                  "bru.test('Location contains keycloak', () => expect(location).to.include('keycloak'));",
+                  "console.log('Redirect with activation_token:', location.substring(0, 100) + '...');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "2.4. Keycloak Callback (Simulated)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/iam/auth/callback?code=test_auth_code_mobile&state=test_state_mobile",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "auth", "callback"],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "test_auth_code_mobile"
+                },
+                {
+                  "key": "state",
+                  "value": "test_state_mobile"
+                }
+              ]
+            },
+            "description": "Keycloak callback for mobile. Returns sessionCode in redirect instead of setting cookie. Mobile app extracts sessionCode and uses /session/exchange."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 200 or 302', () => expect(bru.getStatus()).to.be.oneOf([200, 302]));",
+                  "const b = bru.getBody();",
+                  "bru.test('Has sessionCode', () => expect(b).to.have.property('sessionCode'));",
+                  "bru.test('Has user', () => expect(b).to.have.property('user'));",
+                  "bru.test('Channel is MOBILE', () => expect(b.channel).to.equal('MOBILE'));",
+                  "if (b.sessionCode) bru.setVar('SESSION_CODE', b.sessionCode);",
+                  "console.log('sessionCode:', b.sessionCode, '| user:', b.user?.username);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "2.5. Session Exchange (Mobile)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{CLIENT_ID_MOBILE}}\",\n  \"sessionCode\": \"{{SESSION_CODE}}\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/iam/auth/session/exchange",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "auth", "session", "exchange"]
+            },
+            "description": "Mobile client exchanges sessionCode for access/refresh tokens. sessionCode is single-use. Returns access token, refresh token, and user profile."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 200', () => expect(bru.getStatus()).to.equal(200));",
+                  "const b = bru.getBody();",
+                  "bru.test('Has accessToken', () => expect(b).to.have.property('accessToken'));",
+                  "bru.test('Has refreshToken', () => expect(b).to.have.property('refreshToken'));",
+                  "bru.test('Has user', () => expect(b).to.have.property('user'));",
+                  "bru.test('tokenType is Bearer', () => expect(b.tokenType).to.equal('Bearer'));",
+                  "if (b.accessToken) bru.setVar('ACCESS_TOKEN', b.accessToken);",
+                  "if (b.refreshToken) bru.setVar('REFRESH_TOKEN', b.refreshToken);",
+                  "console.log('Tokens exchanged | accessToken:', b.accessToken?.substring(0, 40) + '...');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "2.6. Get User (Me) - Bearer Token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ACCESS_TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/iam/users/me",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "users", "me"]
+            },
+            "description": "Retrieve user profile using Bearer token (from session exchange). Validates token claims and returns user info."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 200', () => expect(bru.getStatus()).to.equal(200));",
+                  "const b = bru.getBody();",
+                  "bru.test('Has userId', () => expect(b.userId || b.id).to.be.ok);",
+                  "bru.test('Has username', () => expect(b).to.have.property('username'));",
+                  "bru.test('Has status ACTIVE', () => expect(b.status).to.equal('ACTIVE'));",
+                  "bru.test('loginProvider is KEYCLOAK', () => expect(b.loginProvider).to.equal('KEYCLOAK'));",
+                  "console.log('User from Bearer token:', JSON.stringify(b, null, 2));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03. Token Refresh",
+      "item": [
+        {
+          "name": "3.1. Refresh Token (Explicit)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{CLIENT_ID_MOBILE}}\",\n  \"refreshToken\": \"{{REFRESH_TOKEN}}\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/iam/auth/refresh",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "auth", "refresh"]
+            },
+            "description": "Refresh access token using refresh token. Can be called via explicit refreshToken in body or via session cookie. Returns new access token and optionally new refresh token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 200', () => expect(bru.getStatus()).to.equal(200));",
+                  "const b = bru.getBody();",
+                  "bru.test('Has accessToken', () => expect(b).to.have.property('accessToken'));",
+                  "bru.test('accessToken is different from old', () => expect(b.accessToken).not.to.equal('{{ACCESS_TOKEN}}'));",
+                  "if (b.accessToken) bru.setVar('ACCESS_TOKEN', b.accessToken);",
+                  "if (b.refreshToken) bru.setVar('REFRESH_TOKEN', b.refreshToken);",
+                  "console.log('Token refreshed | new accessToken:', b.accessToken?.substring(0, 40) + '...');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "3.2. Refresh Token (Cookie-based)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/iam/auth/refresh",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "auth", "refresh"]
+            },
+            "description": "Refresh using session cookie (preferred method for web clients). Automatically uses refresh token from session. Returns new access token and updates cookie TTL."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 200 or 401', () => expect(bru.getStatus()).to.be.oneOf([200, 401]));",
+                  "const b = bru.getBody();",
+                  "if (bru.getStatus() === 200) {",
+                  "  bru.test('Has accessToken', () => expect(b).to.have.property('accessToken'));",
+                  "  if (b.accessToken) bru.setVar('ACCESS_TOKEN', b.accessToken);",
+                  "  console.log('Token refreshed from cookie');",
+                  "} else {",
+                  "  console.log('No session cookie available (expected if not logged in via web)');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04. Logout",
+      "item": [
+        {
+          "name": "4.1. Logout (Revoke Token)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{CLIENT_ID}}\",\n  \"refreshToken\": \"{{REFRESH_TOKEN}}\",\n  \"logoutAllDevices\": false\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/iam/auth/logout",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "auth", "logout"]
+            },
+            "description": "Revoke refresh token and delete session. For web, also clears session cookie. If logoutAllDevices=true, attempts to revoke all active sessions for user (requires session index)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 200', () => expect(bru.getStatus()).to.equal(200));",
+                  "const b = bru.getBody();",
+                  "bru.test('Has status LOGGED_OUT', () => expect(b.status).to.equal('LOGGED_OUT'));",
+                  "bru.test('Has timestamp', () => expect(b).to.have.property('timestamp'));",
+                  "bru.setVar('ACCESS_TOKEN', '');",
+                  "bru.setVar('REFRESH_TOKEN', '');",
+                  "console.log('Logged out at:', b.timestamp);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05. Error Scenarios",
+      "item": [
+        {
+          "name": "5.1. Invalid Client ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"testuser@example.com\",\n  \"clientId\": \"invalid-client\",\n  \"redirectUri\": \"http://localhost:5173/auth/callback\",\n  \"channel\": \"WEB\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/iam/auth/login/init",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "auth", "login", "init"]
+            },
+            "description": "Should return 400 with error='invalid_client' if clientId is not registered"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 400 (invalid client)', () => expect(bru.getStatus()).to.equal(400));",
+                  "const b = bru.getBody();",
+                  "bru.test('error is invalid_client', () => expect(b.error).to.equal('invalid_client'));",
+                  "bru.test('Has errorDescription', () => expect(b).to.have.property('errorDescription'));",
+                  "console.log('Expected error:', b.error, '-', b.errorDescription);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "5.2. Invalid Redirect URI",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"testuser@example.com\",\n  \"clientId\": \"{{CLIENT_ID}}\",\n  \"redirectUri\": \"http://evil.com/callback\",\n  \"channel\": \"WEB\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/iam/auth/login/init",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "auth", "login", "init"]
+            },
+            "description": "Should return 400 with error='invalid_request' if redirectUri not allowed for client"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 400 (invalid redirect)', () => expect(bru.getStatus()).to.equal(400));",
+                  "const b = bru.getBody();",
+                  "bru.test('error is invalid_request', () => expect(b.error).to.equal('invalid_request'));",
+                  "bru.test('description mentions redirect', () => expect(b.errorDescription).to.include('redirect'));",
+                  "console.log('Expected error:', b.error, '-', b.errorDescription);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "5.3. User Not Found",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"nonexistent@example.com\",\n  \"clientId\": \"{{CLIENT_ID}}\",\n  \"redirectUri\": \"{{REDIRECT_URI}}\",\n  \"channel\": \"WEB\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/iam/auth/login/init",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "auth", "login", "init"]
+            },
+            "description": "Should return 404 with error='user_not_found' if user doesn't exist"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 404 (user not found)', () => expect(bru.getStatus()).to.equal(404));",
+                  "const b = bru.getBody();",
+                  "bru.test('error is user_not_found', () => expect(b.error).to.equal('user_not_found'));",
+                  "bru.test('Has errorDescription', () => expect(b).to.have.property('errorDescription'));",
+                  "console.log('Expected error:', b.error, '-', b.errorDescription);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "5.4. Invalid OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{TXN_ID}}\",\n  \"otp\": \"000000\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/iam/auth/otp/verify",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "auth", "otp", "verify"]
+            },
+            "description": "Should return 401 with error='invalid_otp' if OTP is incorrect or expired"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 401 (invalid OTP)', () => expect(bru.getStatus()).to.equal(401));",
+                  "const b = bru.getBody();",
+                  "bru.test('error is invalid_otp', () => expect(b.error).to.equal('invalid_otp'));",
+                  "bru.test('Has errorDescription', () => expect(b).to.have.property('errorDescription'));",
+                  "console.log('Expected error:', b.error, '-', b.errorDescription);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "5.5. Expired Transaction",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/iam/oauth2/authorize?txnId=expired_txn_id",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "oauth2", "authorize"],
+              "query": [
+                {
+                  "key": "txnId",
+                  "value": "expired_txn_id"
+                }
+              ]
+            },
+            "description": "Should return 400 with error='txn_expired' if transaction is older than 10 minutes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 400 (expired txn)', () => expect(bru.getStatus()).to.equal(400));",
+                  "const b = bru.getBody();",
+                  "bru.test('error is txn_expired or invalid', () => expect(b.error).to.be.oneOf(['txn_expired', 'invalid_request']));",
+                  "console.log('Expected error:', b.error, '-', b.errorDescription);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "5.6. Invalid Session Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{CLIENT_ID_MOBILE}}\",\n  \"sessionCode\": \"invalid_session_code\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/iam/auth/session/exchange",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "auth", "session", "exchange"]
+            },
+            "description": "Should return 404 with error='session_code_invalid' if sessionCode doesn't exist or is expired"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 404 (invalid session code)', () => expect(bru.getStatus()).to.equal(404));",
+                  "const b = bru.getBody();",
+                  "bru.test('error is session_code_invalid', () => expect(b.error).to.equal('session_code_invalid'));",
+                  "bru.test('Has errorDescription', () => expect(b).to.have.property('errorDescription'));",
+                  "console.log('Expected error:', b.error, '-', b.errorDescription);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "5.7. Session Code Already Used",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{CLIENT_ID_MOBILE}}\",\n  \"sessionCode\": \"{{SESSION_CODE}}\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/iam/auth/session/exchange",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "auth", "session", "exchange"]
+            },
+            "description": "Should return 400 with error='session_code_used' if sessionCode has already been exchanged (single-use enforcement)"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 400 (session code used)', () => expect(bru.getStatus()).to.equal(400));",
+                  "const b = bru.getBody();",
+                  "bru.test('error is session_code_used', () => expect(b.error).to.equal('session_code_used'));",
+                  "bru.test('Has errorDescription', () => expect(b).to.have.property('errorDescription'));",
+                  "console.log('Expected error:', b.error, '-', b.errorDescription);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06. Health Check",
+      "item": [
+        {
+          "name": "6.1. Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/health",
+              "host": ["{{BASE_URL}}"],
+              "path": ["health"]
+            },
+            "description": "Verify orchestrator is running. Returns {ok: true}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "bru.test('Status 200', () => expect(bru.getStatus()).to.equal(200));",
+                  "const b = bru.getBody();",
+                  "bru.test('Has ok property', () => expect(b).to.have.property('ok'));",
+                  "bru.test('ok is true', () => expect(b.ok).to.equal(true));",
+                  "console.log('Health check passed | ok:', b.ok);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    }
+  ]
+}

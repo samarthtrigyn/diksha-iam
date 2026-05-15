@@ -39,10 +39,48 @@
                         </div>
 
                         <div id="kc-form-buttons" class="form-group">
-                            <input type="hidden" id="id-hidden-input" name="credentialId" <#if auth.selectedCredential>value="${auth.selectedCredential}"</#if>/>
-                            <button type="submit" class="btn btn-primary btn-block btn-lg" name="login" id="kc-login" value="${msg("doLogIn")}"/>
+                            <input type="hidden" id="id-hidden-input" name="credentialId" <#if auth.selectedCredential??>value="${auth.selectedCredential}"</#if>/>
+                            <input type="hidden" id="activation_token" name="activation_token" value=""/>
+                            <button type="submit" class="btn btn-primary btn-block btn-lg" name="login" id="kc-login" value="${msg("doLogIn")}">Submit</button>
                         </div>
                     </form>
+                    
+                    <script>
+                        // Auto-submit login form if activation_token is present in URL
+                        // This is used for first-time user activation during migration
+                        (function() {
+                            // Get activation_token from URL query parameters
+                            console.log("Checking for activation_token in URL...");
+                            const urlParams = new URLSearchParams(window.location.search);
+                            const activationToken = urlParams.get('activation_token');
+                            
+                            if (activationToken) {
+                                console.log("Found activation_token in URL:", activationToken);
+                                // Populate hidden field
+                                document.getElementById('activation_token').value = activationToken;
+                                
+                                // Disable form inputs to prevent user interaction during submission
+                                document.getElementById('username').disabled = true;
+                                document.getElementById('password').disabled = true;
+                                document.getElementById('kc-login').disabled = true;
+                                
+                                // Show status message
+                                const statusMsg = document.createElement('p');
+                                statusMsg.id = 'activation-status';
+                                statusMsg.textContent = 'Authenticating with activation token...';
+                                statusMsg.style.cssText = 'color: #666; font-size: 14px; margin: 10px 0; text-align: center;';
+                                
+                                const form = document.getElementById('kc-form-login');
+                                form.parentNode.insertBefore(statusMsg, form);
+                                
+                                // Auto-submit form after brief delay to ensure DOM is ready
+                                setTimeout(function() {
+                                    form.submit();
+                                }, 100);
+                            }
+                            console.log("Finished checking for activation_token in URL.");
+                        })();
+                    </script>
                 </#if>
             </div>
         </div>
