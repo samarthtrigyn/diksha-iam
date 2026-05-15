@@ -7,7 +7,7 @@ import { getLineNum } from '../utils/helpers.js';
  * Handles session creation, retrieval, rotation, and deletion
  */
 
-export async function createSession(iamUserId, username, tokens, sessionTTL) {
+export async function createSession(iamUserId, username, tokens, sessionTTL, { channel = 'WEB', clientId } = {}) {
   try {
     const sessionId = uuidv4();
     const createdAt = Date.now();
@@ -17,6 +17,8 @@ export async function createSession(iamUserId, username, tokens, sessionTTL) {
       sessionId,
       iamUserId,
       username,
+      channel,
+      clientId,
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       idToken: tokens.idToken,

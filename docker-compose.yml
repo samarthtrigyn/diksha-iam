@@ -109,8 +109,10 @@ services:
       # Keycloak URLs
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_REALM: diksha-demo
-      KEYCLOAK_CLIENT_ID: iam-admin-client
-      KEYCLOAK_CLIENT_SECRET: iam-admin-client-secret
+      KEYCLOAK_ADMIN_CLIENT_ID: iam-admin-client
+      KEYCLOAK_ADMIN_CLIENT_SECRET: iam-admin-client-secret
+      KEYCLOAK_PORTAL_CLIENT_ID: diksha-portal
+      KEYCLOAK_MOBILE_CLIENT_ID: diksha-mobile
       
       # Keycloak public URL (browser-visible, differs from internal http://keycloak:8080)
       KEYCLOAK_PUBLIC_URL: http://localhost:8080

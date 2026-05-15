@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { KEYCLOAK_CLIENT_ID, SESSION_COOKIE_NAME } from '../config/index.js';
+import { SESSION_COOKIE_NAME } from '../config/index.js';
 import { getLineNum } from '../utils/helpers.js';
 import { getSession } from '../services/session.js';
 import { getSessionIdFromCookie } from '../middleware/secureCookie.js';

@@ -2,18 +2,18 @@ import { Router } from 'express';
 import axios from 'axios';
 import {
   KEYCLOAK_URL, KEYCLOAK_PUBLIC_URL, KEYCLOAK_REALM,
-  KEYCLOAK_CLIENT_ID, SESSION_TTL, SESSION_COOKIE_NAME
-} from '../config/index.js';
-import { getLineNum, maskIdentifier } from '../utils/helpers.js';
-import { validateTokenClaims } from '../utils/token.js';
-import { logKeycloakCall } from '../services/keycloak.js';
-import { createSession } from '../services/session.js';
-import { setSecureCookie } from '../middleware/secureCookie.js';
-import mappingStore from '../stores/mappingStore.js';
-import stateStore from '../stores/stateStore.js';
-import txnStore from '../stores/txnStore.js';
-import sessionCodeStore from '../stores/sessionCodeStore.js';
-import { validateCallback } from '../middleware/validation.js';
+  KEYCLOAK_PORTAL_CLIENT_ID, KEYCLOAK_MOBILE_CLIENT_ID, SESSION_TTL, SESSION_COOKIE_NAME
+} from '../../config/index.js';
+import { getLineNum, maskIdentifier } from '../../utils/helpers.js';
+import { validateTokenClaims } from '../../utils/token.js';
+import { logKeycloakCall } from '../../services/keycloak.js';
+import { createSession } from '../../services/session.js';
+import { setSecureCookie } from '../../middleware/secureCookie.js';
+import mappingStore from '../../stores/mappingStore.js';
+import stateStore from '../../stores/stateStore.js';
+import txnStore from '../../stores/txnStore.js';
+import sessionCodeStore from '../../stores/sessionCodeStore.js';
+import { validateCallback } from '../../middleware/validation.js';
 
 const router = Router();
 
@@ -110,9 +110,12 @@ async function handleCallback(req, res) {
 
     let tokenResp;
     try {
+      // Select client_id based on channel (WEB uses portal, MOBILE uses mobile)
+      const keycloakClientId = channel === 'MOBILE' ? KEYCLOAK_MOBILE_CLIENT_ID : KEYCLOAK_PORTAL_CLIENT_ID;
+      
       const requestPayload = {
         grant_type: 'authorization_code',
-        client_id: KEYCLOAK_CLIENT_ID,
+        client_id: keycloakClientId,
         code,
         redirect_uri: kcCallbackUrl, // Keycloak redirect_uri (orchestrator callback)
         code_verifier: codeVerifier
@@ -162,11 +165,12 @@ async function handleCallback(req, res) {
     let idTokenPayload;
     const expectedIssuer = `${KEYCLOAK_PUBLIC_URL}/realms/${KEYCLOAK_REALM}`;
     try {
+      const keycloakClientId = channel === 'MOBILE' ? KEYCLOAK_MOBILE_CLIENT_ID : KEYCLOAK_PORTAL_CLIENT_ID;
       idTokenPayload = validateTokenClaims(
         tokenResp.data.id_token,
         nonce,
         expectedIssuer,
-        KEYCLOAK_CLIENT_ID
+        keycloakClientId
       );
       console.log(
         `[CALLBACK] ID token validated for subject: ${idTokenPayload.sub} ${getLineNum()}`
@@ -237,7 +241,8 @@ async function handleCallback(req, res) {
           expiresIn: tokenResp.data.expires_in,
           tokenType: 'Bearer'
         },
-        SESSION_TTL
+        SESSION_TTL,
+        { channel, clientId }
       );
 
       sessionId = session.sessionId;
@@ -312,7 +317,7 @@ async function handleCallback(req, res) {
     }
 
   } catch (err) {
-    console.error(`[CALLBACK] Unexpected error ${getLineNum()}:`, err.message);
+    console.error(`[CALLBACK] Unexpected error ${getLineNum()}:`, err.stack );
     return res.status(500).json({
       error: 'server_error',
       errorDescription: 'Internal server error',
@@ -323,6 +328,5 @@ async function handleCallback(req, res) {
 }
 
 router.get('/iam/auth/callback', handleCallback);
-router.post('/iam/auth/callback', handleCallback);
 
 export default router;

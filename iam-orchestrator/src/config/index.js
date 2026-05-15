@@ -20,11 +20,14 @@ export const KEYCLOAK_PUBLIC_URL = process.env.KEYCLOAK_PUBLIC_URL || 'http://lo
 export const KEYCLOAK_REALM      = process.env.KEYCLOAK_REALM     || 'diksha-demo';
 
 // Service account for Admin API calls (client_credentials grant, NO admin password needed)
-export const KC_ADMIN_CLIENT_ID     = process.env.KEYCLOAK_CLIENT_ID     || 'iam-admin-client';
-export const KC_ADMIN_CLIENT_SECRET = process.env.KEYCLOAK_CLIENT_SECRET || 'iam-admin-client-secret';
+export const KC_ADMIN_CLIENT_ID     = process.env.KEYCLOAK_ADMIN_CLIENT_ID     || 'iam-admin-client';
+export const KC_ADMIN_CLIENT_SECRET = process.env.KEYCLOAK_ADMIN_CLIENT_SECRET || 'iam-admin-client-secret';
 
 // Public/portal client used in OAuth2 authorization and token exchange flows
-export const KEYCLOAK_CLIENT_ID = process.env.KEYCLOAK_PORTAL_CLIENT_ID || 'diksha-portal';
+export const KEYCLOAK_PORTAL_CLIENT_ID = process.env.KEYCLOAK_PORTAL_CLIENT_ID || 'diksha-portal';
+
+// Public/mobile client used in OAuth2 authorization and token exchange flows
+export const KEYCLOAK_MOBILE_CLIENT_ID = process.env.KEYCLOAK_MOBILE_CLIENT_ID || 'diksha-mobile';
 
 // Shared secret for signing activation tokens (must match ACTIVATION_TOKEN_SECRET in Keycloak env)
 export const ACTIVATION_TOKEN_SECRET = process.env.ACTIVATION_TOKEN_SECRET || 'change-me-in-production';

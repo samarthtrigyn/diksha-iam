@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-  KEYCLOAK_PUBLIC_URL, KEYCLOAK_REALM, KEYCLOAK_CLIENT_ID, SESSION_TTL, SESSION_COOKIE_NAME
+  KEYCLOAK_PUBLIC_URL, KEYCLOAK_REALM, KEYCLOAK_PORTAL_CLIENT_ID, KEYCLOAK_MOBILE_CLIENT_ID, SESSION_TTL, SESSION_COOKIE_NAME
 } from '../../config/index.js';
 import { getLineNum } from '../../utils/helpers.js';
 import { validateTokenClaims } from '../../utils/token.js';
@@ -83,7 +83,9 @@ router.post('/iam/auth/refresh', async (req, res) => {
     // ── STEP 3: Exchange refresh token for new access token ──
     let tokenResp;
     try {
-      tokenResp = await refreshTokenWithKeycloak(refreshToken, KEYCLOAK_CLIENT_ID);
+      // Select client_id based on channel stored in session
+      const keycloakClientId = session?.channel === 'MOBILE' ? KEYCLOAK_MOBILE_CLIENT_ID : KEYCLOAK_PORTAL_CLIENT_ID;
+      tokenResp = await refreshTokenWithKeycloak(refreshToken, keycloakClientId);
       console.log(`[AUTH-REFRESH] Token refresh successful ${getLineNum()}`);
     } catch (refreshErr) {
       const statusCode = refreshErr.statusCode || 401;

@@ -34,7 +34,7 @@ async function set(code, data) {
     expiresAt: Date.now() + SESSION_CODE_TTL * 1000,
   });
 
-  await client.setex(key, SESSION_CODE_TTL, value);
+  await client.setEx(key, SESSION_CODE_TTL, value);
 }
 
 /**
@@ -75,7 +75,7 @@ async function markUsed(code) {
 
   data.used = true;
   const value = JSON.stringify(data);
-  await client.setex(key, SESSION_CODE_TTL, value);
+  await client.setEx(key, SESSION_CODE_TTL, value);
 
   return true;
 }

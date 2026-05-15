@@ -48,7 +48,7 @@ router.post('/iam/auth/session/exchange', validateSessionExchange, async (req, r
     );
 
     // ── STEP 1: Load and validate sessionCode ──
-    const sessionCodeData = await sessionCodeStore.get(sessionCode);
+    const sessionCodeData = await sessionStore.get(sessionCode);
     if (!sessionCodeData) {
       console.warn(
         `[SESSION-EXCHANGE] SessionCode not found or expired: ${sessionCode.substring(0, 8)}... ${getLineNum()}`

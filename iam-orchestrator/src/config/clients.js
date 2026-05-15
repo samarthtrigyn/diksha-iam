@@ -22,6 +22,7 @@ export const CLIENTS = {
     redirectUris: [
       'diksha://auth/callback',
       'dikshamobile://auth/callback',
+      'http://localhost:5173/*', //This is for testing purpose only
     ],
     description: 'Mobile app using sessionCode token exchange',
   },

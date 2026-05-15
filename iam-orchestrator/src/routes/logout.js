@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import axios from 'axios';
-import { KEYCLOAK_URL, KEYCLOAK_REALM, KEYCLOAK_CLIENT_ID, SESSION_COOKIE_NAME } from '../config/index.js';
+import { KEYCLOAK_URL, KEYCLOAK_REALM, SESSION_COOKIE_NAME } from '../config/index.js';
 import { getLineNum, maskIdentifier } from '../utils/helpers.js';
 import { logKeycloakCall, revokeToken } from '../services/keycloak.js';
 import { deleteSession } from '../services/session.js';
@@ -27,7 +27,7 @@ async function handleLogout(req, res) {
     // ── STEP 1: Revoke refresh token with Keycloak ──
     if (refreshToken) {
       try {
-        await revokeToken(refreshToken, KEYCLOAK_CLIENT_ID);
+        await revokeToken(refreshToken, "KEYCLOAK_CLIENT_ID");
         console.log(`[LOGOUT] Refresh token revoked ${getLineNum()}`);
       } catch (err) {
         console.warn(`[LOGOUT] Failed to revoke refresh token ${getLineNum()}:`, err.message);
