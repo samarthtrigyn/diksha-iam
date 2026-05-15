@@ -209,8 +209,8 @@ router.get('/iam/sso/:provider/callback', async (req, res) => {
     await stateStore.delete(state);
 
     // Create an application session for the SSO user.
-    // Note: SSO users authenticated via external IdP do not produce a Keycloak
-    // access_token in this flow, so we store minimal session data; the session
+    // TODO: To get an access_token for SSO users authenticated via external IdP, we need to implement a token exchange with Keycloak. Maybe a direct grant/client credentials flow for a special sso client or a broker client.
+    // Currently, SSO users do not get a Keycloak access_token in this flow, so we store minimal session data; the session
     // acts as the authoritative application session (cookie-based).
     const sessionTokens = {
       accessToken: null,
@@ -234,7 +234,7 @@ router.get('/iam/sso/:provider/callback', async (req, res) => {
 
     console.log(`[SSO-CALLBACK] SSO authentication successful for ${provider}, action: ${action} ${getLineNum()}`);
 
-    // Redirect to frontend callback page — no tokens in URL, session in cookie
+    // Redirect 302 to redirectUri shared by the client during login init session in cookie and sso_success=true and provider as query params so that frontend can detect successful SSO login and proceed with OIDC flow (e.g. call /iam/auth/session/exchange to get access_token and id_token for the SSO user if required)
     const frontendCallbackUrl = `${stateData.redirectUri}?sso_success=true&provider=${provider}`;
     console.log(`[SSO-CALLBACK] Redirecting to frontend: ${stateData.redirectUri} ${getLineNum()}`);
     return res.redirect(frontendCallbackUrl);

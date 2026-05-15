@@ -54,6 +54,11 @@
       "key": "REFRESH_TOKEN",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "SSO_STATE",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -846,6 +851,356 @@
                   "bru.test('error is session_code_used', () => expect(b.error).to.equal('session_code_used'));",
                   "bru.test('Has errorDescription', () => expect(b).to.have.property('errorDescription'));",
                   "console.log('Expected error:', b.error, '-', b.errorDescription);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07. Flow - SSO Login (Google / State Provider)",
+      "description": "SSO login flow via external identity providers (Google OAuth2 or state-configured OIDC providers). No txnStore/PKCE involved — state is stored directly in stateStore. Session cookie is set on successful callback.",
+      "item": [
+        {
+          "name": "7.1. SSO Login Init (Google)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/iam/sso/google/login?redirectUri={{REDIRECT_URI}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "sso", "google", "login"],
+              "query": [
+                {
+                  "key": "redirectUri",
+                  "value": "{{REDIRECT_URI}}",
+                  "description": "Optional. Frontend URL to redirect to after successful SSO. Defaults to FRONTEND_REDIRECT_URI env var."
+                }
+              ]
+            },
+            "description": "Initiates Google SSO login. Generates a state UUID and nonce, stores them in stateStore (TTL 10 min), and returns the Google OAuth2 authorization URL.\n\nResponse: { authUrl: 'https://accounts.google.com/o/oauth2/v2/auth?...', state: '<uuid>' }\n\nThe client should redirect the user's browser to authUrl. Google will redirect back to /iam/sso/google/callback with code and state."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('Has authUrl', () => pm.expect(b).to.have.property('authUrl'));",
+                  "pm.test('Has state', () => pm.expect(b).to.have.property('state'));",
+                  "pm.test('authUrl is Google OAuth2', () => pm.expect(b.authUrl).to.include('accounts.google.com'));",
+                  "pm.test('authUrl contains response_type=code', () => pm.expect(b.authUrl).to.include('response_type=code'));",
+                  "pm.test('authUrl contains openid scope', () => pm.expect(b.authUrl).to.include('openid'));",
+                  "if (b.state) pm.collectionVariables.set('SSO_STATE', b.state);",
+                  "console.log('SSO state:', b.state);",
+                  "console.log('Auth URL:', b.authUrl);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "7.2. SSO Login Init (State Provider)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/iam/sso/state_karnataka/login?redirectUri={{REDIRECT_URI}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "sso", "state_karnataka", "login"],
+              "query": [
+                {
+                  "key": "redirectUri",
+                  "value": "{{REDIRECT_URI}}",
+                  "description": "Optional. Frontend callback URL."
+                }
+              ]
+            },
+            "description": "Initiates SSO login for a state-configured OIDC provider. Provider name must be prefixed with 'state_' followed by the state code (e.g. state_karnataka, state_maharashtra).\n\nThe state code is looked up in STATE_SSO_PROVIDERS config. Returns 400 if the state provider is not configured.\n\nResponse: { authUrl: '<state_auth_endpoint>?...', state: '<uuid>' }"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 or 400', () => pm.expect(pm.response.code).to.be.oneOf([200, 400]));",
+                  "const b = pm.response.json();",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test('Has authUrl', () => pm.expect(b).to.have.property('authUrl'));",
+                  "  pm.test('Has state', () => pm.expect(b).to.have.property('state'));",
+                  "  if (b.state) pm.collectionVariables.set('SSO_STATE', b.state);",
+                  "  console.log('State SSO authUrl:', b.authUrl);",
+                  "} else {",
+                  "  pm.test('error mentions provider', () => pm.expect(b.error).to.be.ok);",
+                  "  console.log('Expected: State provider not configured -', b.error);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "7.3. SSO Callback (Google - Simulated)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/iam/sso/google/callback?code=4%2F0simulated_auth_code&state={{SSO_STATE}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "sso", "google", "callback"],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "4%2F0simulated_auth_code",
+                  "description": "Authorization code returned by Google. Replace with real code from browser redirect."
+                },
+                {
+                  "key": "state",
+                  "value": "{{SSO_STATE}}",
+                  "description": "Must match the state returned from 7.1. Validated against stateStore."
+                }
+              ]
+            },
+            "description": "Google redirects here after user authenticates. Orchestrator:\n1. Validates state from stateStore (must match provider)\n2. Exchanges code for Google ID token\n3. Validates ID token claims (issuer, audience, nonce)\n4. Resolves/creates user via /users/sso-resolve in iam-service\n5. Upserts user in Keycloak\n6. Writes mappingStore with activationStatus=ACTIVE\n7. Creates session (accessToken/refreshToken stored as null — SSO sessions are cookie-only)\n8. Sets HttpOnly session cookie\n9. Redirects to redirectUri?sso_success=true&provider=google\n\nNOTE: In real flow the browser follows the redirect from 7.1. This request is for manual inspection only — the simulated code will fail at token exchange with Google."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// In real flow this returns a 302 redirect to the frontend.",
+                  "// With a simulated/invalid code, Google token exchange will fail → 400.",
+                  "pm.test('Status 302 (real) or 400 (simulated code)', () => pm.expect(pm.response.code).to.be.oneOf([302, 400]));",
+                  "if (pm.response.code === 302) {",
+                  "  const location = pm.response.headers.get('Location') || '';",
+                  "  pm.test('Redirect contains sso_success=true', () => pm.expect(location).to.include('sso_success=true'));",
+                  "  pm.test('Redirect contains provider=google', () => pm.expect(location).to.include('provider=google'));",
+                  "  console.log('SSO redirect to frontend:', location);",
+                  "} else {",
+                  "  const b = pm.response.json();",
+                  "  console.log('Expected failure (simulated code):', b.error);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "7.4. SSO Callback (Provider Error - Simulated)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/iam/sso/google/callback?error=access_denied&state={{SSO_STATE}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "sso", "google", "callback"],
+              "query": [
+                {
+                  "key": "error",
+                  "value": "access_denied",
+                  "description": "Error code returned by provider when user denies access."
+                },
+                {
+                  "key": "state",
+                  "value": "{{SSO_STATE}}"
+                }
+              ]
+            },
+            "description": "Simulates user denying access on the Google consent screen. Provider sends error=access_denied. Should return 400 with the provider error."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test('error mentions SSO provider error', () => pm.expect(b.error).to.include('SSO provider error'));",
+                  "console.log('Provider error propagated correctly:', b.error);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "7.5. SSO Callback (Invalid State)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/iam/sso/google/callback?code=some_code&state=invalid-or-expired-state",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "sso", "google", "callback"],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "some_code"
+                },
+                {
+                  "key": "state",
+                  "value": "invalid-or-expired-state",
+                  "description": "State not present in stateStore (expired or tampered)."
+                }
+              ]
+            },
+            "description": "Simulates a callback with an invalid or expired state parameter. stateStore.get() returns null, so the request is rejected. Protects against CSRF attacks."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test('error is Invalid or expired state', () => pm.expect(b.error).to.include('Invalid or expired state'));",
+                  "console.log('CSRF guard working correctly:', b.error);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "7.6. SSO Callback (Provider Mismatch)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/iam/sso/state_karnataka/callback?code=some_code&state={{SSO_STATE}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "sso", "state_karnataka", "callback"],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "some_code"
+                },
+                {
+                  "key": "state",
+                  "value": "{{SSO_STATE}}",
+                  "description": "State was generated for 'google' but callback claims 'state_karnataka'. Should be rejected."
+                }
+              ]
+            },
+            "description": "Simulates a provider mismatch attack: using a valid state from a google login to hit the state_karnataka callback. stateStore validates stateData.provider === provider, so this is rejected."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test('error is Invalid or expired state', () => pm.expect(b.error).to.include('Invalid or expired state'));",
+                  "console.log('Provider mismatch correctly rejected:', b.error);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "7.7. SSO Unsupported Provider",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/iam/sso/facebook/login",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "sso", "facebook", "login"]
+            },
+            "description": "Attempts to initiate SSO with a provider not in SUPPORTED_SSO_PROVIDERS. Should return 400."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test('error mentions Unsupported provider', () => pm.expect(b.error).to.include('Unsupported provider'));",
+                  "console.log('Unsupported provider correctly rejected:', b.error);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "7.8. Get User (Me) - After SSO Login",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/iam/users/me",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "users", "me"]
+            },
+            "description": "Retrieve user profile after SSO login using the session cookie set in the callback (step 7.3).\n\nSSO sessions have accessToken/refreshToken=null in the session store — the /me endpoint reads only iamUserId and username from session, so it works correctly for SSO users.\n\nmappingStore returns activationStatus=ACTIVE (set during SSO callback)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('Has userId', () => pm.expect(b.userId || b.id).to.be.ok);",
+                  "pm.test('Has username', () => pm.expect(b).to.have.property('username'));",
+                  "pm.test('status is ACTIVE', () => pm.expect(b.status).to.equal('ACTIVE'));",
+                  "console.log('SSO user profile:', JSON.stringify(b, null, 2));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "7.9. Logout - SSO Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/iam/auth/logout",
+              "host": ["{{BASE_URL}}"],
+              "path": ["iam", "auth", "logout"]
+            },
+            "description": "Logout for SSO users. No refreshToken is sent in the body (SSO sessions have refreshToken=null). The logout handler:\n1. Skips Keycloak token revocation (no refreshToken in body)\n2. Deletes the application session from sessionStore\n3. Clears the HttpOnly session cookie\n\nThis is safe — SSO users have no Keycloak tokens to revoke."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('status is LOGGED_OUT', () => pm.expect(b.status).to.equal('LOGGED_OUT'));",
+                  "pm.test('Has timestamp', () => pm.expect(b).to.have.property('timestamp'));",
+                  "console.log('SSO user logged out at:', b.timestamp);"
                 ],
                 "type": "text/javascript"
               }
