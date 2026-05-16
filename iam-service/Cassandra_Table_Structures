@@ -1,9 +1,0 @@
-CREATE TABLE user_external_identity_lookup_for_testing (
-    provider text,
-    idtype text,
-    externalid text,
-    createdon timestamp,
-    lastupdatedon timestamp,
-    userid text,
-    PRIMARY KEY ((provider, idtype, externalid))
-)
