@@ -3,13 +3,16 @@ import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import {
   ORCHESTRATOR_URL, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
-  FRONTEND_REDIRECT_URI, IAM_SERVICE_URL, SESSION_TTL, SESSION_COOKIE_NAME
+  FRONTEND_REDIRECT_URI, IAM_SERVICE_URL, SESSION_TTL, SESSION_COOKIE_NAME,
+  KEYCLOAK_URL, KEYCLOAK_PUBLIC_URL, KEYCLOAK_REALM,
+  KC_BROKER_CLIENT_ID, KC_BROKER_CLIENT_SECRET
 } from '../config/index.js';
 import { getLineNum } from '../utils/helpers.js';
 import { validateTokenClaims } from '../utils/token.js';
+import { generatePKCE } from '../utils/pkce.js';
 import { getAdminToken, upsertKeycloakUserFromIamUser } from '../services/keycloak.js';
 import {
-  SUPPORTED_SSO_PROVIDERS, STATE_SSO_PROVIDERS,
+  SUPPORTED_SSO_PROVIDERS, KC_BROKERED_PROVIDERS, STATE_SSO_PROVIDERS,
   extractExternalIdentity, extractUserInfoFromToken
 } from '../services/sso.js';
 import mappingStore from '../stores/mappingStore.js';
@@ -59,6 +62,34 @@ router.get('/iam/sso/:provider/login', async (req, res) => {
         redirect_uri: `${ORCHESTRATOR_URL}/iam/sso/${provider}/callback`
       });
       authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+    } else if (provider === 'kc-google-broker') {
+      // Keycloak brokers the Google OAuth2 flow. The orchestrator sends a normal
+      // PKCE authorization request to Keycloak with kc_idp_hint=google so Keycloak
+      // skips its login page and redirects the user straight to Google.
+      // The codeVerifier is generated here and stored in stateStore so the callback
+      // can complete the PKCE exchange with Keycloak.
+      const { codeVerifier, codeChallenge } = generatePKCE();
+      // Overwrite the state entry to include PKCE fields (state was already set above)
+      await stateStore.set(state, {
+        flow: 'SSO_LOGIN',
+        provider,
+        nonce,
+        codeVerifier,
+        redirectUri: redirectUri || FRONTEND_REDIRECT_URI,
+        expiresAt: Date.now() + 10 * 60 * 1000
+      });
+      const params = new URLSearchParams({
+        client_id:             KC_BROKER_CLIENT_ID,
+        response_type:         'code',
+        scope:                 'openid email profile',
+        state,
+        nonce,
+        redirect_uri:          `${ORCHESTRATOR_URL}/iam/sso/${provider}/callback`,
+        code_challenge:        codeChallenge,
+        code_challenge_method: 'S256',
+        kc_idp_hint:           'google'
+      });
+      authUrl = `${KEYCLOAK_PUBLIC_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/auth?${params}`;
     } else if (provider.startsWith('state_')) {
       const stateCode = provider.replace('state_', '');
       const config = STATE_SSO_PROVIDERS[stateCode];
@@ -111,6 +142,7 @@ router.get('/iam/sso/:provider/callback', async (req, res) => {
 
     // Exchange code for ID token
     let tokenPayload;
+    let kcTokens = null; // only populated for kc-google-broker
     try {
       if (provider === 'google') {
         console.log(`[SSO-CALLBACK] Exchanging code with Google OAuth2 ${getLineNum()}`);
@@ -125,6 +157,46 @@ router.get('/iam/sso/:provider/callback', async (req, res) => {
         console.log(`[SSO-CALLBACK] Got ID token from Google, validating ${getLineNum()}`);
         console.log(`[SSO-CALLBACK] Got ID token from Google, ${JSON.stringify(tokenResp.data)} ${getLineNum()}`);
         tokenPayload = validateTokenClaims(tokenResp.data.id_token, stateData.nonce, 'https://accounts.google.com', GOOGLE_CLIENT_ID);
+      } else if (provider === 'kc-google-broker') {
+        // Keycloak completed the Google broker flow and redirected back with a
+        // Keycloak authorization code. Exchange it with Keycloak using the
+        // PKCE code_verifier stored in stateStore at login time.
+        console.log(`[SSO-CALLBACK] Exchanging code with Keycloak (kc-google-broker) ${getLineNum()}`);
+        const kcPayload = new URLSearchParams({
+          grant_type:    'authorization_code',
+          client_id:     KC_BROKER_CLIENT_ID,
+          code,
+          redirect_uri:  `${ORCHESTRATOR_URL}/iam/sso/${provider}/callback`,
+          code_verifier: stateData.codeVerifier,
+          ...(KC_BROKER_CLIENT_SECRET && { client_secret: KC_BROKER_CLIENT_SECRET })
+        });
+        const tokenResp = await axios.post(
+          `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token`,
+          kcPayload.toString(),
+          { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 10000 }
+        );
+        if (!tokenResp.data.access_token || !tokenResp.data.id_token) {
+          throw new Error('Keycloak did not return required tokens');
+        }
+        console.log(`[SSO-CALLBACK] Got tokens from Keycloak, validating ID token ${tokenResp.data.id_token} ${getLineNum()}`);
+        
+        // Validate Keycloak-issued ID token (issuer = Keycloak, not Google)
+        const expectedIssuer = `${KEYCLOAK_PUBLIC_URL}/realms/${KEYCLOAK_REALM}`;
+        tokenPayload = validateTokenClaims(
+          tokenResp.data.id_token,
+          stateData.nonce,
+          expectedIssuer,
+          KC_BROKER_CLIENT_ID
+        );
+        console.log(`[SSO-CALLBACK] Keycloak ID token validated, sub: ${tokenPayload.sub} ${getLineNum()}`);
+        // Preserve real Keycloak tokens so the session can support token refresh
+        kcTokens = {
+          accessToken:  tokenResp.data.access_token,
+          idToken:      tokenResp.data.id_token,
+          refreshToken: tokenResp.data.refresh_token,
+          expiresIn:    tokenResp.data.expires_in,
+          tokenType:    'Bearer'
+        };
       } else if (provider.startsWith('state_')) {
         const stateCode = provider.replace('state_', '');
         const config = STATE_SSO_PROVIDERS[stateCode];
@@ -208,11 +280,12 @@ router.get('/iam/sso/:provider/callback', async (req, res) => {
     // Clean up state
     await stateStore.delete(state);
 
-    // Create an application session for the SSO user.
-    // TODO: To get an access_token for SSO users authenticated via external IdP, we need to implement a token exchange with Keycloak. Maybe a direct grant/client credentials flow for a special sso client or a broker client.
-    // Currently, SSO users do not get a Keycloak access_token in this flow, so we store minimal session data; the session
-    // acts as the authoritative application session (cookie-based).
-    const sessionTokens = {
+    // Create an application session.
+    // For kc-google-broker: real Keycloak tokens are available (kcTokens), so
+    // they are stored in the session — token refresh via /iam/auth/refresh works.
+    // For direct Google / state providers: no Keycloak tokens; session is
+    // cookie-only with null token fields.
+    const sessionTokens = kcTokens || {
       accessToken: null,
       idToken: null,
       refreshToken: null,

@@ -581,7 +581,7 @@ async function resolveSsoUser(ssoUser) {
 
   console.info(`[sso] Resolving SSO user: ${provider}/${externalid}`);
 
-  // STEP 1: Check if external identity already mapped
+  // STEP 1: Check if external identity already mapped in our user_external_identity_lookup_for_testing table. This means that the user has logged in to our iam system atleast once successfully.
   const existingUser = await resolveUserByExternalIdentity(provider, idtype, externalid);
   if (existingUser) {
     console.info(`[sso] User already exists with this external identity: ${existingUser.id}`);

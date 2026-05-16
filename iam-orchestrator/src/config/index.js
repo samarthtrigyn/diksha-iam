@@ -62,6 +62,15 @@ export const SECURE_COOKIE_DOMAIN     = process.env.SECURE_COOKIE_DOMAIN || unde
 export const SECURE_COOKIE_SECURE     = process.env.SECURE_COOKIE_SECURE === 'true' || process.env.NODE_ENV === 'production';
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Keycloak-brokered SSO client
+// Client registered in Keycloak that has the orchestrator SSO callback URL as
+// a valid redirect URI. Keycloak handles the external IdP (e.g. Google) OAuth2
+// dance; the orchestrator only speaks to Keycloak.
+// ──────────────────────────────────────────────────────────────────────────────
+export const KC_BROKER_CLIENT_ID     = process.env.KC_BROKER_CLIENT_ID     || 'diksha-portal';
+export const KC_BROKER_CLIENT_SECRET = process.env.KC_BROKER_CLIENT_SECRET || '';
+
+// ──────────────────────────────────────────────────────────────────────────────
 // JWT/Token Validation
 // ──────────────────────────────────────────────────────────────────────────────
 export const JWKS_URI = process.env.JWKS_URI || `${KEYCLOAK_PUBLIC_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/certs`;

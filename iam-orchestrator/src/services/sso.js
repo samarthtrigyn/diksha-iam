@@ -6,7 +6,15 @@
 export const STATE_SSO_PROVIDERS = {};
 // Example: STATE_SSO_PROVIDERS['maharashtra'] = { clientId, clientSecret, ... }
 
-export const SUPPORTED_SSO_PROVIDERS = ['google', ...Object.keys(STATE_SSO_PROVIDERS).map(state => `state_${state}`)];
+// Keycloak-brokered providers: Keycloak owns the external IdP OAuth2 dance;
+// the orchestrator only does PKCE code exchange with Keycloak.
+export const KC_BROKERED_PROVIDERS = ['kc-google-broker'];
+
+export const SUPPORTED_SSO_PROVIDERS = [
+  'google',
+  ...KC_BROKERED_PROVIDERS,
+  ...Object.keys(STATE_SSO_PROVIDERS).map(state => `state_${state}`)
+];
 
 /**
  * Extract external identity from provider token payload
@@ -17,6 +25,16 @@ export function extractExternalIdentity(provider, tokenPayload) {
       provider: 'google',
       idtype: 'sub',
       externalid: tokenPayload.sub
+    };
+  }
+
+  // Keycloak-brokered Google: Keycloak issues the token but propagates the
+  // original Google subject under the 'identity_provider_identity' claim.
+  if (provider === 'kc-google-broker') {
+    return {
+      provider: 'google',
+      idtype: 'sub',
+      externalid: tokenPayload.identity_provider_identity || tokenPayload.sub
     };
   }
 
