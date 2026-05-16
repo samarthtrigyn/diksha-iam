@@ -192,7 +192,7 @@ services:
   # IAM User Service (Mock service for demonstration)
   iam-service:
     build:
-      context: ./iam-service
+      context: ./iam-core
       dockerfile: Dockerfile
     container_name: iam-service
     env_file:

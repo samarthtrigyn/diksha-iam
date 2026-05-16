@@ -1,0 +1,16 @@
+[submodule "web-portal"]
+	path = web-portal
+	url = git@github.com:dikshatrigyn/web-portal.git
+	branch = git_modules_trial
+[submodule "iam-orchestrator"]
+	path = iam-orchestrator
+	url = git@github.com:dikshatrigyn/iam-orchestrator.git
+	branch = git_modules_trial
+[submodule "keycloak"]
+	path = keycloak
+	url = git@github.com:dikshatrigyn/keycloak.git
+	branch = git_modules_trial
+[submodule "iam-core"]
+	path = iam-core
+	url = git@github.com:dikshatrigyn/iam-core.git
+	branch = git_modules_trial
