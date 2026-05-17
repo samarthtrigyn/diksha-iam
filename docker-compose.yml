@@ -193,16 +193,30 @@ services:
   iam-service:
     build:
       context: ./iam-core
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: iam-service
-    env_file:
-      - ./iam-service/.env
     environment:
       NODE_ENV: development
       PORT: 3000
-    
+      LOCATION_API_BASE_URL: https://dev.oci.diksha.gov.in
+      LOCATION_API_TOKEN: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkZUJyTmhjY2djNWNzUnh2ZU02Z2JYMWFuVTZxZGZyYiJ9.PggkeMJjWcV4MEy3J5XnizCCd6qcrFSD5y5rron_G9Y
+      AES_KEY_BASE64: hX2RzN6YjlVZz8yTQ9kvlhRQmfzn6LxvlEJzjXsKjSo=
+      LMS_SSO_BASE_URL: https://dev-learning.diksha.gov.in/diksha/diksha_sso.php
+      INTERNAL_API_BASE_URL: https://dev.oci.diksha.gov.in
+      OTP_REQUEST_TIMEOUT_MS: 10000
+      SUNBIRD_ENCRYPTION_SALT: ing4eesue!wa7uKu
+      CASSANDRA_CONTACT_POINTS: 10.50.8.60
+      CASSANDRA_LOCAL_DC: datacenter1
+      CASSANDRA_KEYSPACE: sunbird
+      SUNBIRD_USERNAME_NUM_DIGITS: 4
+      GOOGLE_CLIENT_ID: 239632573042-k9ncnvvm13qgtrk5d33r822nahkpspgb.apps.googleusercontent.com
+      GOOGLE_CLIENT_SECRET: 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
+
     ports:
       - "3000:3000"
+    
+    volumes:
+      - ./iam-core/src:/app/src
     
     networks:
       - diksha-demo
