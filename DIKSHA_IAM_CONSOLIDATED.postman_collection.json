@@ -1,0 +1,631 @@
+{
+  "info": {
+    "name": "DIKSHA IAM Consolidated APIs",
+    "description": "Single consolidated Postman collection for all orchestrator flows: direct grant login, registration, forgot password, refresh, profile, resolve, logout, SSO, health, and deprecated code-grant endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "diksha-iam-consolidated-collection"
+  },
+  "item": [
+    {
+      "name": "1. Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": { 
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Service health endpoint."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Login (Direct Grant Unified)",
+      "item": [
+        {
+          "name": "Login - Unified (/iam/auth/login)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"test@example.com\",\n  \"password\": \"TestPassword123!\",\n  \"clientId\": \"diksha-portal\",\n  \"channel\": \"WEB\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "login"]
+            },
+            "description": "Unified login endpoint. For first-time users, omit password and continue with forgot-password OTP flow."
+          },
+          "response": []
+        },
+        {
+          "name": "Login - Alias (/iam/auth/login/direct-grant)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"test@example.com\",\n  \"password\": \"TestPassword123!\",\n  \"clientId\": \"diksha-portal\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/login/direct-grant",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "login", "direct-grant"]
+            },
+            "description": "Alias for unified direct grant login."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Registration Flow",
+      "item": [
+        {
+          "name": "Register Init",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"newuser@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/register/init",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "register", "init"]
+            },
+            "description": "Starts registration and returns txnId."
+          },
+          "response": []
+        },
+        {
+          "name": "Register Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{txnId}}\",\n  \"otp\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/register/verify-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "register", "verify-otp"]
+            },
+            "description": "Verifies registration OTP."
+          },
+          "response": []
+        },
+        {
+          "name": "Register Complete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{txnId}}\",\n  \"password\": \"SecurePass123!\",\n  \"confirmPassword\": \"SecurePass123!\",\n  \"termsAccepted\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/register/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "register", "complete"]
+            },
+            "description": "Completes registration and activates user."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Forgot Password / First-Time Password Setup",
+      "item": [
+        {
+          "name": "Forgot Init",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"test@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/password/forgot-init",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "password", "forgot-init"]
+            },
+            "description": "Starts forgot-password flow and returns txnId."
+          },
+          "response": []
+        },
+        {
+          "name": "Forgot Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{txnId}}\",\n  \"otp\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/password/forgot-verify-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "password", "forgot-verify-otp"]
+            },
+            "description": "Verifies OTP for forgot/first-time password flow."
+          },
+          "response": []
+        },
+        {
+          "name": "Forgot Complete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{txnId}}\",\n  \"password\": \"NewPassword123!\",\n  \"confirmPassword\": \"NewPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/password/forgot-complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "password", "forgot-complete"]
+            },
+            "description": "Sets new password after OTP verification."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Token / Session",
+      "item": [
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"diksha-portal\",\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "refresh"]
+            },
+            "description": "Refreshes access token using session cookie or explicit refresh token."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. User Profile and Resolve",
+      "item": [
+        {
+          "name": "Me (Spec Path)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/iam/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "users", "me"]
+            },
+            "description": "Get authenticated user details using cookie/session or bearer token."
+          },
+          "response": []
+        },
+        {
+          "name": "Me (Legacy Alias)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/iam/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "me"]
+            },
+            "description": "Alias for me endpoint."
+          },
+          "response": []
+        },
+        {
+          "name": "Resolve User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"test@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/users/resolve",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "users", "resolve"]
+            },
+            "description": "Resolves identifier to canonical IAM user metadata."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Cassandra Status (IAM Core)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{iamServiceUrl}}/users/{{iamUserId}}?isEncrypted=false",
+              "host": ["{{iamServiceUrl}}"],
+              "path": ["users", "{{iamUserId}}"],
+              "query": [
+                {
+                  "key": "isEncrypted",
+                  "value": "false"
+                }
+              ]
+            },
+            "description": "Use this after first successful login to verify status persistence in IAM Core (Cassandra). Expect user.status to be 1 (ACTIVE)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. Logout",
+      "item": [
+        {
+          "name": "Logout (Spec Path)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"diksha-portal\",\n  \"refreshToken\": \"{{refreshToken}}\",\n  \"logoutAllDevices\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "logout"]
+            },
+            "description": "Logs out user, revokes token (best effort), clears session cookie."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout (Legacy Alias)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"diksha-portal\",\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "logout"]
+            },
+            "description": "Alias for logout endpoint."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8. SSO",
+      "item": [
+        {
+          "name": "SSO Login (Provider)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/iam/sso/{{provider}}/login?redirectUri={{frontendRedirectUri}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "sso", "{{provider}}", "login"],
+              "query": [
+                {
+                  "key": "redirectUri",
+                  "value": "{{frontendRedirectUri}}"
+                }
+              ]
+            },
+            "description": "Starts SSO login for provider (e.g., google, kc-google-broker, state_xx)."
+          },
+          "response": []
+        },
+        {
+          "name": "SSO Callback (Provider)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/iam/sso/{{provider}}/callback?code={{code}}&state={{state}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "sso", "{{provider}}", "callback"],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "{{code}}"
+                },
+                {
+                  "key": "state",
+                  "value": "{{state}}"
+                }
+              ]
+            },
+            "description": "SSO callback endpoint for provider token/code exchange."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "9. Deprecated Code-Grant Endpoints (Expect 410)",
+      "item": [
+        {
+          "name": "Deprecated - Login Init",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"test@example.com\",\n  \"clientId\": \"diksha-portal\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/login/init",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "login", "init"]
+            },
+            "description": "Deprecated endpoint; should return flow_deprecated (410)."
+          },
+          "response": []
+        },
+        {
+          "name": "Deprecated - OTP Verify",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{txnId}}\",\n  \"otp\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/otp/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "otp", "verify"]
+            },
+            "description": "Deprecated endpoint; should return flow_deprecated (410)."
+          },
+          "response": []
+        },
+        {
+          "name": "Deprecated - OAuth2 Authorize",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/iam/oauth2/authorize",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "oauth2", "authorize"]
+            },
+            "description": "Deprecated endpoint; should return flow_deprecated (410)."
+          },
+          "response": []
+        },
+        {
+          "name": "Deprecated - Session Exchange",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionCode\": \"{{sessionCode}}\",\n  \"clientId\": \"diksha-mobile\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/session/exchange",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "session", "exchange"]
+            },
+            "description": "Deprecated endpoint; should return flow_deprecated (410)."
+          },
+          "response": []
+        },
+        {
+          "name": "Deprecated - Login Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{txnId}}\",\n  \"password\": \"TestPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/login/password",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "login", "password"]
+            },
+            "description": "Deprecated endpoint; should return flow_deprecated (410)."
+          },
+          "response": []
+        },
+        {
+          "name": "Deprecated - Callback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/callback",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "callback"]
+            },
+            "description": "Deprecated endpoint; should return flow_deprecated (410)."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000"
+    },
+    {
+      "key": "frontendRedirectUri",
+      "value": "http://localhost:5173/callback"
+    },
+    {
+      "key": "iamServiceUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "provider",
+      "value": "google"
+    },
+    {
+      "key": "iamUserId",
+      "value": ""
+    },
+    {
+      "key": "txnId",
+      "value": ""
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "state",
+      "value": ""
+    },
+    {
+      "key": "code",
+      "value": ""
+    },
+    {
+      "key": "sessionCode",
+      "value": ""
+    }
+  ]
+}
