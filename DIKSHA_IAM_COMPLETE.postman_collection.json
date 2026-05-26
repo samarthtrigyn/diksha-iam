@@ -1,0 +1,1000 @@
+{
+  "info": {
+    "name": "DIKSHA IAM - Complete API Collection",
+    "description": "Comprehensive Postman collection for DIKSHA IAM system including:\n1. All login and registration flows\n2. All IAM core APIs\n3. All non-mocked OTP service APIs\n4. All Keycloak APIs for debugging",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "🔐 Authentication & Login Flows",
+      "description": "Complete authentication flows including direct grant login, registration, and password reset",
+      "item": [
+        {
+          "name": "Direct Grant Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('accessToken', jsonData.tokens.accessToken);",
+                  "    pm.environment.set('refreshToken', jsonData.tokens.refreshToken);",
+                  "    pm.environment.set('userId', jsonData.user.userId);",
+                  "    pm.environment.set('sessionId', jsonData.sessionId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"testuser@diksha.local\",\n  \"password\": \"Test@123456\",\n  \"clientId\": \"diksha-portal\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/login/direct-grant",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "login", "direct-grant"]
+            },
+            "description": "Direct Grant Flow - Authenticate user with email/phone and password. Returns JWT tokens and session ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Registration - Init",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"newuser@diksha.local\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/register/init",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "register", "init"]
+            },
+            "description": "Initialize registration flow. Returns transaction ID for OTP flow."
+          },
+          "response": []
+        },
+        {
+          "name": "Registration - Send OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{txnId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/register/send-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "register", "send-otp"]
+            },
+            "description": "Send OTP to user's email. Use mock OTP code: 123456"
+          },
+          "response": []
+        },
+        {
+          "name": "Registration - Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{txnId}}\",\n  \"otp\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/register/verify-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "register", "verify-otp"]
+            },
+            "description": "Verify OTP code sent to user. Mock OTP: 123456"
+          },
+          "response": []
+        },
+        {
+          "name": "Registration - Complete",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('newUserId', jsonData.user.userId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{txnId}}\",\n  \"password\": \"Test@123456\",\n  \"confirmPassword\": \"Test@123456\",\n  \"termsAccepted\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/register/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "register", "complete"]
+            },
+            "description": "Complete registration and create user in IAM DB and Keycloak. Returns user object with nextStep."
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password - Init",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"testuser@diksha.local\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/reset-password/init",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "reset-password", "init"]
+            },
+            "description": "Initialize password reset flow for existing user."
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password - Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{txnId}}\",\n  \"otp\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/reset-password/verify-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "reset-password", "verify-otp"]
+            },
+            "description": "Verify OTP for password reset. Mock OTP: 123456"
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password - Complete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{txnId}}\",\n  \"password\": \"NewPass@123456\",\n  \"confirmPassword\": \"NewPass@123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/reset-password/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "reset-password", "complete"]
+            },
+            "description": "Set new password for user account."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('accessToken', jsonData.tokens.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\",\n  \"clientId\": \"diksha-portal\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "refresh"]
+            },
+            "description": "Refresh access token using refresh token."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "👤 User Management",
+      "description": "User profile and session management endpoints",
+      "item": [
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/iam/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "users", "me"]
+            },
+            "description": "Get current authenticated user profile. Requires valid access token."
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/iam/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "users", "{{userId}}"]
+            },
+            "description": "Get user profile by user ID. Requires valid access token."
+          },
+          "response": []
+        },
+        {
+          "name": "Resolve User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"testuser@diksha.local\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/users/resolve",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "users", "resolve"]
+            },
+            "description": "Resolve user by email or phone identifier. Returns user details."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "auth", "logout"]
+            },
+            "description": "Logout user and invalidate session. Clears httpOnly cookie."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🔑 OTP Service (Non-Mocked)",
+      "description": "Non-mocked OTP service endpoints for direct OTP generation and verification",
+      "item": [
+        {
+          "name": "Generate OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"testuser@diksha.local\",\n  \"channel\": \"email\",\n  \"type\": \"REGISTRATION\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/otp/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["otp", "generate"]
+            },
+            "description": "Generate OTP for user (non-mocked service). Sends actual OTP code to email/SMS."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"testuser@diksha.local\",\n  \"otp\": \"123456\",\n  \"type\": \"REGISTRATION\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/otp/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["otp", "verify"]
+            },
+            "description": "Verify OTP code sent to user (non-mocked service)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🌐 SSO Integration",
+      "description": "Social Sign-On endpoints for Google and other providers",
+      "item": [
+        {
+          "name": "Get SSO Providers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/iam/sso",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "sso"]
+            },
+            "description": "Get list of configured SSO providers with login URLs."
+          },
+          "response": []
+        },
+        {
+          "name": "SSO Login - Google",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/iam/sso/google/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "sso", "google", "login"]
+            },
+            "description": "Initiate Google SSO login flow. Redirects to Google OAuth consent screen."
+          },
+          "response": []
+        },
+        {
+          "name": "SSO Callback - Google",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/iam/sso/google/callback?code=AUTH_CODE&state=STATE",
+              "host": ["{{baseUrl}}"],
+              "path": ["iam", "sso", "google", "callback"],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "AUTH_CODE"
+                },
+                {
+                  "key": "state",
+                  "value": "STATE"
+                }
+              ]
+            },
+            "description": "Google OAuth callback endpoint. Handles authorization code and creates/updates user."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🏢 IAM Core APIs",
+      "description": "Core IAM service APIs for user management and system operations",
+      "item": [
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newuser@diksha.local\",\n  \"phone\": \"+91234567890\",\n  \"name\": \"New User\",\n  \"activationStatus\": \"ACTIVE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            },
+            "description": "Create new user in IAM database. Admin operation."
+          },
+          "response": []
+        },
+        {
+          "name": "Get User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}"]
+            },
+            "description": "Get user details by ID. Admin operation."
+          },
+          "response": []
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Name\",\n  \"activationStatus\": \"ACTIVE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}"]
+            },
+            "description": "Update user profile. Admin operation."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{userId}}"]
+            },
+            "description": "Delete user from IAM database. Admin operation."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users?limit=50&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Get all users with pagination. Admin operation."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🔐 Keycloak Admin API (Debugging)",
+      "description": "Keycloak administration endpoints for system debugging and troubleshooting",
+      "item": [
+        {
+          "name": "Get Keycloak Admin Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('kcAdminToken', jsonData.access_token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "client_credentials"
+                },
+                {
+                  "key": "client_id",
+                  "value": "iam-admin-client"
+                },
+                {
+                  "key": "client_secret",
+                  "value": "{{kcAdminSecret}}"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{keycloakUrl}}/realms/{{keycloakRealm}}/protocol/openid-connect/token",
+              "host": ["{{keycloakUrl}}"],
+              "path": ["realms", "{{keycloakRealm}}", "protocol", "openid-connect", "token"]
+            },
+            "description": "Get admin token from Keycloak for accessing admin APIs."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Keycloak User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{kcAdminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/users/{{kcUserId}}",
+              "host": ["{{keycloakUrl}}"],
+              "path": ["admin", "realms", "{{keycloakRealm}}", "users", "{{kcUserId}}"]
+            },
+            "description": "Get user details from Keycloak."
+          },
+          "response": []
+        },
+        {
+          "name": "List Keycloak Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{kcAdminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/users?max=50&first=0",
+              "host": ["{{keycloakUrl}}"],
+              "path": ["admin", "realms", "{{keycloakRealm}}", "users"],
+              "query": [
+                {
+                  "key": "max",
+                  "value": "50"
+                },
+                {
+                  "key": "first",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "List all users in Keycloak realm."
+          },
+          "response": []
+        },
+        {
+          "name": "Search Keycloak User by Email",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{kcAdminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/users?email=testuser@diksha.local",
+              "host": ["{{keycloakUrl}}"],
+              "path": ["admin", "realms", "{{keycloakRealm}}", "users"],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "testuser@diksha.local"
+                }
+              ]
+            },
+            "description": "Search user in Keycloak by email address."
+          },
+          "response": []
+        },
+        {
+          "name": "Set Keycloak User Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{kcAdminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"password\",\n  \"value\": \"NewPassword@123\",\n  \"temporary\": false\n}"
+            },
+            "url": {
+              "raw": "{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/users/{{kcUserId}}/reset-password",
+              "host": ["{{keycloakUrl}}"],
+              "path": ["admin", "realms", "{{keycloakRealm}}", "users", "{{kcUserId}}", "reset-password"]
+            },
+            "description": "Set password for Keycloak user directly (admin operation)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Keycloak User Sessions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{kcAdminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/users/{{kcUserId}}/sessions",
+              "host": ["{{keycloakUrl}}"],
+              "path": ["admin", "realms", "{{keycloakRealm}}", "users", "{{kcUserId}}", "sessions"]
+            },
+            "description": "Get all active sessions for a user in Keycloak."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout User from Keycloak",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{kcAdminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/users/{{kcUserId}}/logout",
+              "host": ["{{keycloakUrl}}"],
+              "path": ["admin", "realms", "{{keycloakRealm}}", "users", "{{kcUserId}}", "logout"]
+            },
+            "description": "Force logout of user from Keycloak (invalidates all sessions)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Keycloak Realm Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{kcAdminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{keycloakUrl}}/admin/realms/{{keycloakRealm}}",
+              "host": ["{{keycloakUrl}}"],
+              "path": ["admin", "realms", "{{keycloakRealm}}"]
+            },
+            "description": "Get realm information from Keycloak."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Keycloak Clients",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{kcAdminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/clients",
+              "host": ["{{keycloakUrl}}"],
+              "path": ["admin", "realms", "{{keycloakRealm}}", "clients"]
+            },
+            "description": "List all clients configured in Keycloak realm."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Keycloak Client Roles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{kcAdminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/clients/{{kcClientId}}/roles",
+              "host": ["{{keycloakUrl}}"],
+              "path": ["admin", "realms", "{{keycloakRealm}}", "clients", "{{kcClientId}}", "roles"]
+            },
+            "description": "Get roles defined for a client in Keycloak."
+          },
+          "response": []
+        },
+        {
+          "name": "Revoke Keycloak Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "client_id",
+                  "value": "diksha-portal"
+                },
+                {
+                  "key": "token",
+                  "value": "{{refreshToken}}"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{keycloakUrl}}/realms/{{keycloakRealm}}/protocol/openid-connect/revoke",
+              "host": ["{{keycloakUrl}}"],
+              "path": ["realms", "{{keycloakRealm}}", "protocol", "openid-connect", "revoke"]
+            },
+            "description": "Revoke refresh token on Keycloak."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🏥 System Health & Debugging",
+      "description": "Health check and debugging endpoints",
+      "item": [
+        {
+          "name": "IAM Orchestrator Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Check if IAM Orchestrator service is running."
+          },
+          "response": []
+        },
+        {
+          "name": "IAM Core Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{iamCoreUrl}}/health",
+              "host": ["{{iamCoreUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Check if IAM Core service is running."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Pre-request script for all requests",
+          "// Sets up common headers and variables if needed"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000",
+      "type": "string"
+    },
+    {
+      "key": "iamCoreUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "keycloakUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "keycloakRealm",
+      "value": "diksha-demo",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "sessionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "txnId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "kcAdminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "kcAdminSecret",
+      "value": "admin-secret-change-in-production",
+      "type": "string"
+    },
+    {
+      "key": "kcUserId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "kcClientId",
+      "value": "diksha-portal",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "newUserId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
