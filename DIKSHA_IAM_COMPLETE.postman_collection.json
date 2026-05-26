@@ -6,48 +6,9 @@
   },
   "item": [
     {
-      "name": "🔐 Authentication & Login Flows",
-      "description": "Complete authentication flows including direct grant login, registration, and password reset",
+      "name": "UI - Registration Flow",
+      "description": "UI perspective: new user registration journey from init to account creation.",
       "item": [
-        {
-          "name": "Direct Grant Login",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "if (pm.response.code === 200) {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.environment.set('accessToken', jsonData.tokens.accessToken);",
-                  "    pm.environment.set('refreshToken', jsonData.tokens.refreshToken);",
-                  "    pm.environment.set('userId', jsonData.user.userId);",
-                  "    pm.environment.set('sessionId', jsonData.sessionId);",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"identifier\": \"testuser@diksha.local\",\n  \"password\": \"Test@123456\",\n  \"clientId\": \"diksha-portal\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/iam/auth/login/direct-grant",
-              "host": ["{{baseUrl}}"],
-              "path": ["iam", "auth", "login", "direct-grant"]
-            },
-            "description": "Direct Grant Flow - Authenticate user with email/phone and password. Returns JWT tokens and session ID."
-          },
-          "response": []
-        },
         {
           "name": "Registration - Init",
           "request": {
@@ -64,12 +25,44 @@
             },
             "url": {
               "raw": "{{baseUrl}}/iam/auth/register/init",
-              "host": ["{{baseUrl}}"],
-              "path": ["iam", "auth", "register", "init"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "auth",
+                "register",
+                "init"
+              ]
             },
             "description": "Initialize registration flow. Returns transaction ID for OTP flow."
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));",
+                  "if (res.getStatus() === 200) {",
+                  "    try {",
+                  "        var jsonData = res.getBody();",
+                  "        if (jsonData && jsonData.data) {",
+                  "            if (jsonData.data.txnId) bru.setVar('txnId', jsonData.data.txnId);",
+                  "            test('Status', () => expect(['OTP_SENT', 'OTP_REQUIRED', 'PASSWORD_RESET_REQUIRED', 'LOGIN_USER']).to.include(jsonData.data.status));",
+                  "            if (jsonData.data.status) bru.setVar('status', jsonData.data.status);",
+                  "            if (jsonData.data.nextStep) bru.setVar('nextStep', jsonData.data.nextStep);",
+                  "            if (jsonData.data.flow) bru.setVar('flow', jsonData.data.flow);",
+                  "            if (jsonData.data.maskedIdentifier) bru.setVar('maskedIdentifier', jsonData.data.maskedIdentifier);",
+                  "        }",
+                  "    } catch (err) {",
+                  "        console.log('Error parsing response:', err);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Registration - Send OTP",
@@ -87,12 +80,44 @@
             },
             "url": {
               "raw": "{{baseUrl}}/iam/auth/register/send-otp",
-              "host": ["{{baseUrl}}"],
-              "path": ["iam", "auth", "register", "send-otp"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "auth",
+                "register",
+                "send-otp"
+              ]
             },
             "description": "Send OTP to user's email. Use mock OTP code: 123456"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));",
+                  "if (res.getStatus() === 200) {",
+                  "    try {",
+                  "        var jsonData = res.getBody();",
+                  "        if (jsonData && jsonData.data) {",
+                  "            if (jsonData.data.txnId) bru.setVar('txnId', jsonData.data.txnId);",
+                  "            test('Status', () => expect(['OTP_SENT', 'OTP_REQUIRED', 'PASSWORD_RESET_REQUIRED', 'LOGIN_USER']).to.include(jsonData.data.status));",
+                  "            if (jsonData.data.status) bru.setVar('status', jsonData.data.status);",
+                  "            if (jsonData.data.nextStep) bru.setVar('nextStep', jsonData.data.nextStep);",
+                  "            if (jsonData.data.flow) bru.setVar('flow', jsonData.data.flow);",
+                  "            if (jsonData.data.maskedIdentifier) bru.setVar('maskedIdentifier', jsonData.data.maskedIdentifier);",
+                  "        }",
+                  "    } catch (err) {",
+                  "        console.log('Error parsing response:', err);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Registration - Verify OTP",
@@ -110,12 +135,44 @@
             },
             "url": {
               "raw": "{{baseUrl}}/iam/auth/register/verify-otp",
-              "host": ["{{baseUrl}}"],
-              "path": ["iam", "auth", "register", "verify-otp"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "auth",
+                "register",
+                "verify-otp"
+              ]
             },
             "description": "Verify OTP code sent to user. Mock OTP: 123456"
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));",
+                  "if (res.getStatus() === 200) {",
+                  "    try {",
+                  "        var jsonData = res.getBody();",
+                  "        if (jsonData && jsonData.data) {",
+                  "            if (jsonData.data.txnId) bru.setVar('txnId', jsonData.data.txnId);",
+                  "            test('Status', () => expect(['OTP_VERIFIED', 'PASSWORD_SETUP_REQUIRED', 'PASSWORD_RESET_REQUIRED', 'LOGIN_USER']).to.include(jsonData.data.status));",
+                  "            if (jsonData.data.status) bru.setVar('status', jsonData.data.status);",
+                  "            if (jsonData.data.nextStep) bru.setVar('nextStep', jsonData.data.nextStep);",
+                  "            if (jsonData.data.flow) bru.setVar('flow', jsonData.data.flow);",
+                  "            if (jsonData.data.maskedIdentifier) bru.setVar('maskedIdentifier', jsonData.data.maskedIdentifier);",
+                  "        }",
+                  "    } catch (err) {",
+                  "        console.log('Error parsing response:', err);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Registration - Complete",
@@ -124,9 +181,22 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "if (pm.response.code === 201) {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.environment.set('newUserId', jsonData.user.userId);",
+                  "test('HTTP 201', () => expect(res.getStatus()).to.equal(201));",
+                  "if (res.getStatus() === 201) {",
+                  "    try {",
+                  "        var jsonData = res.getBody();",
+                  "        if (jsonData && jsonData.data) {",
+                  "            if (jsonData.data.txnId) bru.setVar('txnId', jsonData.data.txnId);",
+                  "            if (jsonData.data.status) bru.setVar('status', jsonData.data.status);",
+                  "            if (jsonData.data.nextStep) bru.setVar('nextStep', jsonData.data.nextStep);",
+                  "            if (jsonData.data.flow) bru.setVar('flow', jsonData.data.flow);",
+                  "            if (jsonData.data.maskedIdentifier) bru.setVar('maskedIdentifier', jsonData.data.maskedIdentifier);",
+                  "        }",
+                  "        var user = (jsonData && jsonData.data && jsonData.data.user) || (jsonData && jsonData.user) || null;",
+                  "        if (user && user.userId) bru.setVar('newUserId', user.userId);",
+                  "    } catch (err) {",
+                  "        console.log('Error parsing response:', err);",
+                  "    }",
                   "}"
                 ]
               }
@@ -146,15 +216,60 @@
             },
             "url": {
               "raw": "{{baseUrl}}/iam/auth/register/complete",
-              "host": ["{{baseUrl}}"],
-              "path": ["iam", "auth", "register", "complete"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "auth",
+                "register",
+                "complete"
+              ]
             },
             "description": "Complete registration and create user in IAM DB and Keycloak. Returns user object with nextStep."
           },
           "response": []
-        },
+        }
+      ]
+    },
+    {
+      "name": "UI - Login Flow (Active User)",
+      "description": "UI perspective: existing active user login, token refresh, profile check, and logout.",
+      "item": [
         {
-          "name": "Reset Password - Init",
+          "name": "Direct Grant Login - Active User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));",
+                  "if (res.getStatus() === 200) {",
+                  "    try {",
+                  "        var jsonData = res.getBody();",
+                  "        if (jsonData && jsonData.data) {",
+                  "            if (jsonData.data.txnId) bru.setVar('txnId', jsonData.data.txnId);",
+                  "            test('Status', () => expect(['PASSWORD_RESET_REQUIRED', 'LOGIN_USER']).to.include(jsonData.data.status));",
+                  "            if (jsonData.data.status) bru.setVar('status', jsonData.data.status);",
+                  "            if (jsonData.data.nextStep) bru.setVar('nextStep', jsonData.data.nextStep);",
+                  "            if (jsonData.data.flow) bru.setVar('flow', jsonData.data.flow);",
+                  "            if (jsonData.data.maskedIdentifier) bru.setVar('maskedIdentifier', jsonData.data.maskedIdentifier);",
+                  "        }",
+                  "        var tokens = (jsonData && jsonData.data && jsonData.data.tokens) || (jsonData && jsonData.tokens) || null;",
+                  "        var user = (jsonData && jsonData.data && jsonData.data.user) || (jsonData && jsonData.user) || null;",
+                  "        var sessionId = (jsonData && jsonData.data && jsonData.data.sessionId) || (jsonData && jsonData.sessionId) || null;",
+                  "        if (tokens && tokens.accessToken) bru.setVar('accessToken', tokens.accessToken);",
+                  "        if (tokens && tokens.refreshToken) bru.setVar('refreshToken', tokens.refreshToken);",
+                  "        if (user && user.userId) bru.setVar('userId', user.userId);",
+                  "        if (sessionId) bru.setVar('sessionId', sessionId);",
+                  "    } catch (err) {",
+                  "        console.log('Error parsing response:', err);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
@@ -165,60 +280,21 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"identifier\": \"testuser@diksha.local\"\n}"
+              "raw": "{\n  \"identifier\": \"testuser@diksha.local\",\n  \"password\": \"Test@123456\",\n  \"clientId\": \"diksha-portal\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/iam/auth/reset-password/init",
-              "host": ["{{baseUrl}}"],
-              "path": ["iam", "auth", "reset-password", "init"]
+              "raw": "{{baseUrl}}/iam/auth/login/direct-grant",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "auth",
+                "login",
+                "direct-grant"
+              ]
             },
-            "description": "Initialize password reset flow for existing user."
-          },
-          "response": []
-        },
-        {
-          "name": "Reset Password - Verify OTP",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"txnId\": \"{{txnId}}\",\n  \"otp\": \"123456\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/iam/auth/reset-password/verify-otp",
-              "host": ["{{baseUrl}}"],
-              "path": ["iam", "auth", "reset-password", "verify-otp"]
-            },
-            "description": "Verify OTP for password reset. Mock OTP: 123456"
-          },
-          "response": []
-        },
-        {
-          "name": "Reset Password - Complete",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"txnId\": \"{{txnId}}\",\n  \"password\": \"NewPass@123456\",\n  \"confirmPassword\": \"NewPass@123456\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/iam/auth/reset-password/complete",
-              "host": ["{{baseUrl}}"],
-              "path": ["iam", "auth", "reset-password", "complete"]
-            },
-            "description": "Set new password for user account."
+            "description": "Direct Grant Flow - Authenticate user with email/phone and password. Returns JWT tokens and session ID."
           },
           "response": []
         },
@@ -229,9 +305,21 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "if (pm.response.code === 200) {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.environment.set('accessToken', jsonData.tokens.accessToken);",
+                  "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));",
+                  "if (res.getStatus() === 200) {",
+                  "    try {",
+                  "        var jsonData = res.getBody();",
+                  "        var tokens = (jsonData && jsonData.data && jsonData.data.tokens) || (jsonData && jsonData.tokens) || null;",
+                  "        var user = (jsonData && jsonData.data && jsonData.data.user) || (jsonData && jsonData.user) || null;",
+                  "        var sessionId = (jsonData && jsonData.data && jsonData.data.sessionId) || (jsonData && jsonData.sessionId) || null;",
+                  "        if (tokens && tokens.accessToken) bru.setVar('accessToken', tokens.accessToken);",
+                  "        if (tokens && tokens.refreshToken) bru.setVar('refreshToken', tokens.refreshToken);",
+                  "        if (user && user.userId) bru.setVar('userId', user.userId);",
+                  "        if (sessionId) bru.setVar('sessionId', sessionId);",
+                  "        test('Response body exists', () => expect(jsonData).to.not.equal(undefined));",
+                  "    } catch (err) {",
+                  "        console.log('Error parsing response:', err);",
+                  "    }",
                   "}"
                 ]
               }
@@ -251,12 +339,450 @@
             },
             "url": {
               "raw": "{{baseUrl}}/iam/auth/refresh",
-              "host": ["{{baseUrl}}"],
-              "path": ["iam", "auth", "refresh"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "auth",
+                "refresh"
+              ]
             },
             "description": "Refresh access token using refresh token."
           },
           "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/iam/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Get current authenticated user profile. Requires valid access token."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));",
+                  "if (res.getStatus() === 200) {",
+                  "    try {",
+                  "        var jsonData = res.getBody();",
+                  "        var uid = (jsonData && jsonData.data && jsonData.data.userId) || (jsonData && jsonData.userId) || null;",
+                  "        if (uid) bru.setVar('userId', uid);",
+                  "        test('Response body exists', () => expect(jsonData).to.not.equal(undefined));",
+                  "    } catch (err) {",
+                  "        console.log('Error parsing response:', err);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Logout user and invalidate session. Clears httpOnly cookie."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));",
+                  "if (res.getStatus() === 200) {",
+                  "    try {",
+                  "        var jsonData = res.getBody();",
+                  "        test('Response body exists', () => expect(jsonData).to.not.equal(undefined));",
+                  "    } catch (err) {",
+                  "        console.log('Error parsing response:', err);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "UI - Login Flow (First Time User)",
+      "description": "UI perspective: legacy user already in Cassandra but not in upgraded Keycloak; bootstrap via direct grant, OTP verify, password setup, then login.",
+      "item": [
+        {
+          "name": "Direct Grant Login - Bootstrap Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));",
+                  "if (res.getStatus() === 200) {",
+                  "    try {",
+                  "        var jsonData = res.getBody();",
+                  "        if (jsonData && jsonData.data) {",
+                  "            if (jsonData.data.txnId) bru.setVar('txnId', jsonData.data.txnId);",
+                  "            test('Status', () => expect(['PASSWORD_RESET_REQUIRED', 'LOGIN_USER']).to.include(jsonData.data.status));",
+                  "            if (jsonData.data.status) bru.setVar('status', jsonData.data.status);",
+                  "            if (jsonData.data.nextStep) bru.setVar('nextStep', jsonData.data.nextStep);",
+                  "            if (jsonData.data.flow) bru.setVar('flow', jsonData.data.flow);",
+                  "            if (jsonData.data.maskedIdentifier) bru.setVar('maskedIdentifier', jsonData.data.maskedIdentifier);",
+                  "        }",
+                  "        var tokens = (jsonData && jsonData.data && jsonData.data.tokens) || (jsonData && jsonData.tokens) || null;",
+                  "        var user = (jsonData && jsonData.data && jsonData.data.user) || (jsonData && jsonData.user) || null;",
+                  "        var sessionId = (jsonData && jsonData.data && jsonData.data.sessionId) || (jsonData && jsonData.sessionId) || null;",
+                  "        if (tokens && tokens.accessToken) bru.setVar('accessToken', tokens.accessToken);",
+                  "        if (tokens && tokens.refreshToken) bru.setVar('refreshToken', tokens.refreshToken);",
+                  "        if (user && user.userId) bru.setVar('userId', user.userId);",
+                  "        if (sessionId) bru.setVar('sessionId', sessionId);",
+                  "    } catch (err) {",
+                  "        console.log('Error parsing response:', err);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"legacyuser@diksha.local\",\n  \"password\": \"TempPass@123456\",\n  \"clientId\": \"diksha-portal\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/login/direct-grant",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "auth",
+                "login",
+                "direct-grant"
+              ]
+            },
+            "description": "First-time legacy-user path: user exists in Cassandra but may be missing in upgraded Keycloak. Direct grant returns PASSWORD_RESET_REQUIRED with txnId for OTP/password setup when bootstrap is required."
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password - Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{txnId}}\",\n  \"otp\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/reset-password/verify-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "auth",
+                "reset-password",
+                "verify-otp"
+              ]
+            },
+            "description": "Verify OTP for password reset. Mock OTP: 123456"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));",
+                  "if (res.getStatus() === 200) {",
+                  "    try {",
+                  "        var jsonData = res.getBody();",
+                  "        if (jsonData && jsonData.data) {",
+                  "            if (jsonData.data.txnId) bru.setVar('txnId', jsonData.data.txnId);",
+                  "            test('Status', () => expect(['OTP_VERIFIED', 'PASSWORD_SETUP_REQUIRED', 'PASSWORD_RESET_REQUIRED', 'LOGIN_USER']).to.include(jsonData.data.status));",
+                  "            if (jsonData.data.status) bru.setVar('status', jsonData.data.status);",
+                  "            if (jsonData.data.nextStep) bru.setVar('nextStep', jsonData.data.nextStep);",
+                  "            if (jsonData.data.flow) bru.setVar('flow', jsonData.data.flow);",
+                  "            if (jsonData.data.maskedIdentifier) bru.setVar('maskedIdentifier', jsonData.data.maskedIdentifier);",
+                  "        }",
+                  "    } catch (err) {",
+                  "        console.log('Error parsing response:', err);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reset Password - Complete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"txnId\": \"{{txnId}}\",\n  \"password\": \"NewPass@123456\",\n  \"confirmPassword\": \"NewPass@123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/reset-password/complete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "auth",
+                "reset-password",
+                "complete"
+              ]
+            },
+            "description": "Set new password for user account."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));",
+                  "if (res.getStatus() === 200) {",
+                  "    try {",
+                  "        var jsonData = res.getBody();",
+                  "        if (jsonData && jsonData.data) {",
+                  "            if (jsonData.data.txnId) bru.setVar('txnId', jsonData.data.txnId);",
+                  "            test('Status', () => expect(['PASSWORD_UPDATED', 'LOGIN_USER']).to.include(jsonData.data.status));",
+                  "            if (jsonData.data.status) bru.setVar('status', jsonData.data.status);",
+                  "            if (jsonData.data.nextStep) bru.setVar('nextStep', jsonData.data.nextStep);",
+                  "            if (jsonData.data.flow) bru.setVar('flow', jsonData.data.flow);",
+                  "            if (jsonData.data.maskedIdentifier) bru.setVar('maskedIdentifier', jsonData.data.maskedIdentifier);",
+                  "        }",
+                  "    } catch (err) {",
+                  "        console.log('Error parsing response:', err);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Direct Grant Login - Post Password Setup",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));",
+                  "if (res.getStatus() === 200) {",
+                  "    try {",
+                  "        var jsonData = res.getBody();",
+                  "        if (jsonData && jsonData.data) {",
+                  "            if (jsonData.data.txnId) bru.setVar('txnId', jsonData.data.txnId);",
+                  "            test('Status', () => expect(['LOGIN_USER', 'PASSWORD_RESET_REQUIRED']).to.include(jsonData.data.status));",
+                  "            if (jsonData.data.status) bru.setVar('status', jsonData.data.status);",
+                  "            if (jsonData.data.nextStep) bru.setVar('nextStep', jsonData.data.nextStep);",
+                  "            if (jsonData.data.flow) bru.setVar('flow', jsonData.data.flow);",
+                  "            if (jsonData.data.maskedIdentifier) bru.setVar('maskedIdentifier', jsonData.data.maskedIdentifier);",
+                  "        }",
+                  "        var tokens = (jsonData && jsonData.data && jsonData.data.tokens) || (jsonData && jsonData.tokens) || null;",
+                  "        var user = (jsonData && jsonData.data && jsonData.data.user) || (jsonData && jsonData.user) || null;",
+                  "        var sessionId = (jsonData && jsonData.data && jsonData.data.sessionId) || (jsonData && jsonData.sessionId) || null;",
+                  "        if (tokens && tokens.accessToken) bru.setVar('accessToken', tokens.accessToken);",
+                  "        if (tokens && tokens.refreshToken) bru.setVar('refreshToken', tokens.refreshToken);",
+                  "        if (user && user.userId) bru.setVar('userId', user.userId);",
+                  "        if (sessionId) bru.setVar('sessionId', sessionId);",
+                  "    } catch (err) {",
+                  "        console.log('Error parsing response:', err);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"legacyuser@diksha.local\",\n  \"password\": \"NewPass@123456\",\n  \"clientId\": \"diksha-portal\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/login/direct-grant",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "auth",
+                "login",
+                "direct-grant"
+              ]
+            },
+            "description": "Retry login after OTP verification and password setup. Expected status is LOGIN_USER with active session tokens."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/iam/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Get current authenticated user profile. Requires valid access token."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));",
+                  "if (res.getStatus() === 200) {",
+                  "    try {",
+                  "        var jsonData = res.getBody();",
+                  "        var uid = (jsonData && jsonData.data && jsonData.data.userId) || (jsonData && jsonData.userId) || null;",
+                  "        if (uid) bru.setVar('userId', uid);",
+                  "        test('Response body exists', () => expect(jsonData).to.not.equal(undefined));",
+                  "    } catch (err) {",
+                  "        console.log('Error parsing response:', err);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/iam/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Logout user and invalidate session. Clears httpOnly cookie."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));",
+                  "if (res.getStatus() === 200) {",
+                  "    try {",
+                  "        var jsonData = res.getBody();",
+                  "        test('Response body exists', () => expect(jsonData).to.not.equal(undefined));",
+                  "    } catch (err) {",
+                  "        console.log('Error parsing response:', err);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -276,8 +802,14 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/iam/users/me",
-              "host": ["{{baseUrl}}"],
-              "path": ["iam", "users", "me"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "users",
+                "me"
+              ]
             },
             "description": "Get current authenticated user profile. Requires valid access token."
           },
@@ -295,8 +827,14 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/iam/users/{{userId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["iam", "users", "{{userId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "users",
+                "{{userId}}"
+              ]
             },
             "description": "Get user profile by user ID. Requires valid access token."
           },
@@ -318,8 +856,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/iam/users/resolve",
-              "host": ["{{baseUrl}}"],
-              "path": ["iam", "users", "resolve"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "users",
+                "resolve"
+              ]
             },
             "description": "Resolve user by email or phone identifier. Returns user details."
           },
@@ -345,8 +889,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/iam/auth/logout",
-              "host": ["{{baseUrl}}"],
-              "path": ["iam", "auth", "logout"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "auth",
+                "logout"
+              ]
             },
             "description": "Logout user and invalidate session. Clears httpOnly cookie."
           },
@@ -374,8 +924,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/otp/generate",
-              "host": ["{{baseUrl}}"],
-              "path": ["otp", "generate"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "otp",
+                "generate"
+              ]
             },
             "description": "Generate OTP for user (non-mocked service). Sends actual OTP code to email/SMS."
           },
@@ -397,8 +952,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/otp/verify",
-              "host": ["{{baseUrl}}"],
-              "path": ["otp", "verify"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "otp",
+                "verify"
+              ]
             },
             "description": "Verify OTP code sent to user (non-mocked service)."
           },
@@ -417,8 +977,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/iam/sso",
-              "host": ["{{baseUrl}}"],
-              "path": ["iam", "sso"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "sso"
+              ]
             },
             "description": "Get list of configured SSO providers with login URLs."
           },
@@ -431,8 +996,15 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/iam/sso/google/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["iam", "sso", "google", "login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "sso",
+                "google",
+                "login"
+              ]
             },
             "description": "Initiate Google SSO login flow. Redirects to Google OAuth consent screen."
           },
@@ -445,8 +1017,15 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/iam/sso/google/callback?code=AUTH_CODE&state=STATE",
-              "host": ["{{baseUrl}}"],
-              "path": ["iam", "sso", "google", "callback"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "iam",
+                "sso",
+                "google",
+                "callback"
+              ],
               "query": [
                 {
                   "key": "code",
@@ -488,8 +1067,12 @@
             },
             "url": {
               "raw": "{{baseUrl}}/users",
-              "host": ["{{baseUrl}}"],
-              "path": ["users"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
             },
             "description": "Create new user in IAM database. Admin operation."
           },
@@ -507,8 +1090,13 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/users/{{userId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["users", "{{userId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}"
+              ]
             },
             "description": "Get user details by ID. Admin operation."
           },
@@ -534,8 +1122,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/users/{{userId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["users", "{{userId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}"
+              ]
             },
             "description": "Update user profile. Admin operation."
           },
@@ -553,8 +1146,13 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/users/{{userId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["users", "{{userId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}"
+              ]
             },
             "description": "Delete user from IAM database. Admin operation."
           },
@@ -572,8 +1170,12 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/users?limit=50&offset=0",
-              "host": ["{{baseUrl}}"],
-              "path": ["users"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ],
               "query": [
                 {
                   "key": "limit",
@@ -602,9 +1204,14 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "if (pm.response.code === 200) {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.environment.set('kcAdminToken', jsonData.access_token);",
+                  "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));",
+                  "if (res.getStatus() === 200) {",
+                  "    try {",
+                  "        var jsonData = res.getBody();",
+                  "        if (jsonData && jsonData.access_token) bru.setVar('kcAdminToken', jsonData.access_token);",
+                  "    } catch (err) {",
+                  "        console.log('Error parsing response:', err);",
+                  "    }",
                   "}"
                 ]
               }
@@ -637,8 +1244,16 @@
             },
             "url": {
               "raw": "{{keycloakUrl}}/realms/{{keycloakRealm}}/protocol/openid-connect/token",
-              "host": ["{{keycloakUrl}}"],
-              "path": ["realms", "{{keycloakRealm}}", "protocol", "openid-connect", "token"]
+              "host": [
+                "{{keycloakUrl}}"
+              ],
+              "path": [
+                "realms",
+                "{{keycloakRealm}}",
+                "protocol",
+                "openid-connect",
+                "token"
+              ]
             },
             "description": "Get admin token from Keycloak for accessing admin APIs."
           },
@@ -656,8 +1271,16 @@
             ],
             "url": {
               "raw": "{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/users/{{kcUserId}}",
-              "host": ["{{keycloakUrl}}"],
-              "path": ["admin", "realms", "{{keycloakRealm}}", "users", "{{kcUserId}}"]
+              "host": [
+                "{{keycloakUrl}}"
+              ],
+              "path": [
+                "admin",
+                "realms",
+                "{{keycloakRealm}}",
+                "users",
+                "{{kcUserId}}"
+              ]
             },
             "description": "Get user details from Keycloak."
           },
@@ -675,8 +1298,15 @@
             ],
             "url": {
               "raw": "{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/users?max=50&first=0",
-              "host": ["{{keycloakUrl}}"],
-              "path": ["admin", "realms", "{{keycloakRealm}}", "users"],
+              "host": [
+                "{{keycloakUrl}}"
+              ],
+              "path": [
+                "admin",
+                "realms",
+                "{{keycloakRealm}}",
+                "users"
+              ],
               "query": [
                 {
                   "key": "max",
@@ -704,8 +1334,15 @@
             ],
             "url": {
               "raw": "{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/users?email=testuser@diksha.local",
-              "host": ["{{keycloakUrl}}"],
-              "path": ["admin", "realms", "{{keycloakRealm}}", "users"],
+              "host": [
+                "{{keycloakUrl}}"
+              ],
+              "path": [
+                "admin",
+                "realms",
+                "{{keycloakRealm}}",
+                "users"
+              ],
               "query": [
                 {
                   "key": "email",
@@ -737,8 +1374,17 @@
             },
             "url": {
               "raw": "{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/users/{{kcUserId}}/reset-password",
-              "host": ["{{keycloakUrl}}"],
-              "path": ["admin", "realms", "{{keycloakRealm}}", "users", "{{kcUserId}}", "reset-password"]
+              "host": [
+                "{{keycloakUrl}}"
+              ],
+              "path": [
+                "admin",
+                "realms",
+                "{{keycloakRealm}}",
+                "users",
+                "{{kcUserId}}",
+                "reset-password"
+              ]
             },
             "description": "Set password for Keycloak user directly (admin operation)."
           },
@@ -756,8 +1402,17 @@
             ],
             "url": {
               "raw": "{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/users/{{kcUserId}}/sessions",
-              "host": ["{{keycloakUrl}}"],
-              "path": ["admin", "realms", "{{keycloakRealm}}", "users", "{{kcUserId}}", "sessions"]
+              "host": [
+                "{{keycloakUrl}}"
+              ],
+              "path": [
+                "admin",
+                "realms",
+                "{{keycloakRealm}}",
+                "users",
+                "{{kcUserId}}",
+                "sessions"
+              ]
             },
             "description": "Get all active sessions for a user in Keycloak."
           },
@@ -775,8 +1430,17 @@
             ],
             "url": {
               "raw": "{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/users/{{kcUserId}}/logout",
-              "host": ["{{keycloakUrl}}"],
-              "path": ["admin", "realms", "{{keycloakRealm}}", "users", "{{kcUserId}}", "logout"]
+              "host": [
+                "{{keycloakUrl}}"
+              ],
+              "path": [
+                "admin",
+                "realms",
+                "{{keycloakRealm}}",
+                "users",
+                "{{kcUserId}}",
+                "logout"
+              ]
             },
             "description": "Force logout of user from Keycloak (invalidates all sessions)."
           },
@@ -794,8 +1458,14 @@
             ],
             "url": {
               "raw": "{{keycloakUrl}}/admin/realms/{{keycloakRealm}}",
-              "host": ["{{keycloakUrl}}"],
-              "path": ["admin", "realms", "{{keycloakRealm}}"]
+              "host": [
+                "{{keycloakUrl}}"
+              ],
+              "path": [
+                "admin",
+                "realms",
+                "{{keycloakRealm}}"
+              ]
             },
             "description": "Get realm information from Keycloak."
           },
@@ -813,8 +1483,15 @@
             ],
             "url": {
               "raw": "{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/clients",
-              "host": ["{{keycloakUrl}}"],
-              "path": ["admin", "realms", "{{keycloakRealm}}", "clients"]
+              "host": [
+                "{{keycloakUrl}}"
+              ],
+              "path": [
+                "admin",
+                "realms",
+                "{{keycloakRealm}}",
+                "clients"
+              ]
             },
             "description": "List all clients configured in Keycloak realm."
           },
@@ -832,8 +1509,17 @@
             ],
             "url": {
               "raw": "{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/clients/{{kcClientId}}/roles",
-              "host": ["{{keycloakUrl}}"],
-              "path": ["admin", "realms", "{{keycloakRealm}}", "clients", "{{kcClientId}}", "roles"]
+              "host": [
+                "{{keycloakUrl}}"
+              ],
+              "path": [
+                "admin",
+                "realms",
+                "{{keycloakRealm}}",
+                "clients",
+                "{{kcClientId}}",
+                "roles"
+              ]
             },
             "description": "Get roles defined for a client in Keycloak."
           },
@@ -864,8 +1550,16 @@
             },
             "url": {
               "raw": "{{keycloakUrl}}/realms/{{keycloakRealm}}/protocol/openid-connect/revoke",
-              "host": ["{{keycloakUrl}}"],
-              "path": ["realms", "{{keycloakRealm}}", "protocol", "openid-connect", "revoke"]
+              "host": [
+                "{{keycloakUrl}}"
+              ],
+              "path": [
+                "realms",
+                "{{keycloakRealm}}",
+                "protocol",
+                "openid-connect",
+                "revoke"
+              ]
             },
             "description": "Revoke refresh token on Keycloak."
           },
@@ -884,8 +1578,12 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/health",
-              "host": ["{{baseUrl}}"],
-              "path": ["health"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
             },
             "description": "Check if IAM Orchestrator service is running."
           },
@@ -898,8 +1596,12 @@
             "header": [],
             "url": {
               "raw": "{{iamCoreUrl}}/health",
-              "host": ["{{iamCoreUrl}}"],
-              "path": ["health"]
+              "host": [
+                "{{iamCoreUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
             },
             "description": "Check if IAM Core service is running."
           },
@@ -993,6 +1695,26 @@
     },
     {
       "key": "newUserId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "status",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "nextStep",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "flow",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "maskedIdentifier",
       "value": "",
       "type": "string"
     }
