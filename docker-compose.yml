@@ -207,7 +207,7 @@ services:
       SUNBIRD_ENCRYPTION_SALT: ing4eesue!wa7uKu
       CASSANDRA_CONTACT_POINTS: 10.50.8.60
       CASSANDRA_LOCAL_DC: datacenter1
-      CASSANDRA_KEYSPACE: sunbird
+      CASSANDRA_KEYSPACE: iam_users
       SUNBIRD_USERNAME_NUM_DIGITS: 4
       GOOGLE_CLIENT_ID: 239632573042-k9ncnvvm13qgtrk5d33r822nahkpspgb.apps.googleusercontent.com
       GOOGLE_CLIENT_SECRET: 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
