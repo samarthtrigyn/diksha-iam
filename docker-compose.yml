@@ -124,8 +124,8 @@ services:
       # Session/State Configuration
       STATE_STORE_TTL: 600000  # 10 minutes in ms
       
-      # CORS Configuration
-      CORS_ORIGIN: http://localhost:5173,http://localhost:8080
+      # CORS Configuration (semicolon-separated for production config map compatibility)
+      CORS_ORIGIN: http://localhost:5173;http://localhost:8080;https://dev2-learning.diksha.gov.in
       
       # Shared secret for signing activation tokens (must match Keycloak's ACTIVATION_TOKEN_SECRET)
       ACTIVATION_TOKEN_SECRET: "diksha-activation-secret-change-in-production"
