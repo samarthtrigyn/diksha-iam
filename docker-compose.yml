@@ -141,6 +141,9 @@ services:
 
       # Redis Configuration
       REDIS_URL: redis://redis:6379
+
+      #internal OTP Password for OTP flow
+      OTP_LOGIN_INTERNAL_PASSWORD: "Approach1@"
     
     ports:
       - "4000:4000"
