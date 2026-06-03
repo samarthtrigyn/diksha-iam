@@ -144,6 +144,11 @@ services:
 
       #internal OTP Password for OTP flow
       OTP_LOGIN_INTERNAL_PASSWORD: "Approach1@"
+
+      # Return orchestrator-issued access token in OTP login responses
+      ORCHESTRATOR_ISSUED_TOKEN_FOR_OTP: "true"
+      ORCHESTRATOR_ACCESS_TOKEN_SECRET: "diksha-orchestrator-access-token-secret-change-in-production"
+      ORCHESTRATOR_TOKEN_ISSUER: "http://localhost:4000"
     
     ports:
       - "4000:4000"

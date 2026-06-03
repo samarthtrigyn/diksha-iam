@@ -1,0 +1,1286 @@
+opencollection: 1.0.0
+info:
+  name: DIKSHA IAM - Complete API Collection
+config:
+  proxy:
+    inherit: true
+    config:
+      protocol: http
+      hostname: ''
+      port: ''
+      auth:
+        username: ''
+        password: ''
+      bypassProxy: ''
+  environments:
+    - name: Dev-Learning
+      variables:
+        - name: baseUrl
+          value: https://dev2-learning.diksha.gov.in/iamorchestrator
+        - name: iamCoreUrl
+          value: https://dev2-learning.diksha.gov.in/iamcore
+    - name: Localhost
+      variables:
+        - name: baseUrl
+          value: http://localhost:4000
+        - name: iamCoreUrl
+          value: http://localhost:3000
+items:
+  - info:
+      name: UI - Login Flow (First Time User)
+      type: folder
+      seq: 3
+    request:
+      auth: inherit
+    docs:
+      content: 'UI perspective: legacy user already in Cassandra but not in upgraded Keycloak; bootstrap via direct grant, OTP verify, password setup, then login.'
+      type: text/markdown
+    items:
+      - info:
+          name: Direct Grant Login - Bootstrap Check
+          type: http
+          seq: 1
+        http:
+          method: POST
+          url: '{{baseUrl}}/iam/auth/login/direct-grant'
+          headers:
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: |-
+              {
+                "identifier": "rabrorayougra-3473@yopmail.com",
+                "password": "",
+                "clientId": "diksha-portal"
+              }
+          auth: inherit
+        runtime:
+          scripts:
+            - type: after-response
+              code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r\nif (res.getStatus() === 200) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        if (jsonData && jsonData.data) {\r\n            if (jsonData.data.txnId) bru.setVar('txnId', jsonData.data.txnId);\r\n            test('Status', () => expect(['PASSWORD_RESET_REQUIRED', 'LOGIN_USER']).to.include(jsonData.data.status));\r\n            if (jsonData.data.status) bru.setVar('status', jsonData.data.status);\r\n            if (jsonData.data.nextStep) bru.setVar('nextStep', jsonData.data.nextStep);\r\n            if (jsonData.data.flow) bru.setVar('flow', jsonData.data.flow);\r\n            if (jsonData.data.maskedIdentifier) bru.setVar('maskedIdentifier', jsonData.data.maskedIdentifier);\r\n        }\r\n        var tokens = (jsonData && jsonData.data && jsonData.data.tokens) || (jsonData && jsonData.tokens) || null;\r\n        var user = (jsonData && jsonData.data && jsonData.data.user) || (jsonData && jsonData.user) || null;\r\n        var sessionId = (jsonData && jsonData.data && jsonData.data.sessionId) || (jsonData && jsonData.sessionId) || null;\r\n        if (tokens && tokens.accessToken) bru.setVar('accessToken', tokens.accessToken);\r\n        if (tokens && tokens.refreshToken) bru.setVar('refreshToken', tokens.refreshToken);\r\n        if (user && user.userId) bru.setVar('userId', user.userId);\r\n        if (sessionId) bru.setVar('sessionId', sessionId);\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: 'First-time legacy-user path: user exists in Cassandra but may be missing in upgraded Keycloak. Direct grant returns PASSWORD_RESET_REQUIRED with txnId for OTP/password setup when bootstrap is required.'
+      - info:
+          name: Direct Grant Login - Post Password Setup
+          type: http
+          seq: 4
+        http:
+          method: POST
+          url: '{{baseUrl}}/iam/auth/login/direct-grant'
+          headers:
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: |-
+              {
+                "identifier": "samarth.nigam@trigyn.com",
+                "password": "NewPass@123456",
+                "clientId": "diksha-portal"
+              }
+          auth: inherit
+        runtime:
+          scripts:
+            - type: after-response
+              code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r\nif (res.getStatus() === 200) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        if (jsonData && jsonData.data) {\r\n            if (jsonData.data.txnId) bru.setVar('txnId', jsonData.data.txnId);\r\n            test('Status', () => expect(['LOGIN_USER', 'PASSWORD_RESET_REQUIRED']).to.include(jsonData.data.status));\r\n            if (jsonData.data.status) bru.setVar('status', jsonData.data.status);\r\n            if (jsonData.data.nextStep) bru.setVar('nextStep', jsonData.data.nextStep);\r\n            if (jsonData.data.flow) bru.setVar('flow', jsonData.data.flow);\r\n            if (jsonData.data.maskedIdentifier) bru.setVar('maskedIdentifier', jsonData.data.maskedIdentifier);\r\n        }\r\n        var tokens = (jsonData && jsonData.data && jsonData.data.tokens) || (jsonData && jsonData.tokens) || null;\r\n        var user = (jsonData && jsonData.data && jsonData.data.user) || (jsonData && jsonData.user) || null;\r\n        var sessionId = (jsonData && jsonData.data && jsonData.data.sessionId) || (jsonData && jsonData.sessionId) || null;\r\n        if (tokens && tokens.accessToken) bru.setVar('accessToken', tokens.accessToken);\r\n        if (tokens && tokens.refreshToken) bru.setVar('refreshToken', tokens.refreshToken);\r\n        if (user && user.userId) bru.setVar('userId', user.userId);\r\n        if (sessionId) bru.setVar('sessionId', sessionId);\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Retry login after OTP verification and password setup. Expected status is LOGIN_USER with active session tokens.
+      - info:
+          name: Get Current User
+          type: http
+          seq: 5
+        http:
+          method: GET
+          url: '{{baseUrl}}/iam/users/me'
+          headers:
+            - name: Authorization
+              value: Bearer {{accessToken}}
+          auth: inherit
+        runtime:
+          scripts:
+            - type: after-response
+              code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r\nif (res.getStatus() === 200) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        var uid = (jsonData && jsonData.data && jsonData.data.userId) || (jsonData && jsonData.userId) || null;\r\n        if (uid) bru.setVar('userId', uid);\r\n        test('Response body exists', () => expect(jsonData).to.not.equal(undefined));\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Get current authenticated user profile. Requires valid access token.
+      - info:
+          name: Logout
+          type: http
+          seq: 6
+        http:
+          method: POST
+          url: '{{baseUrl}}/iam/auth/logout'
+          headers:
+            - name: Authorization
+              value: Bearer {{accessToken}}
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: '{}'
+          auth: inherit
+        runtime:
+          scripts:
+            - type: after-response
+              code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r\nif (res.getStatus() === 200) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        test('Response body exists', () => expect(jsonData).to.not.equal(undefined));\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Logout user and invalidate session. Clears httpOnly cookie.
+      - info:
+          name: Reset Password - Complete
+          type: http
+          seq: 3
+        http:
+          method: POST
+          url: '{{baseUrl}}/iam/auth/reset-password/complete'
+          headers:
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: |-
+              {
+                "txnId": "{{txnId}}",
+                "password": "NewPass@123456",
+                "confirmPassword": "NewPass@123456"
+              }
+          auth: inherit
+        runtime:
+          scripts:
+            - type: after-response
+              code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r\nif (res.getStatus() === 200) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        if (jsonData && jsonData.data) {\r\n            if (jsonData.data.txnId) bru.setVar('txnId', jsonData.data.txnId);\r\n            test('Status', () => expect(['PASSWORD_UPDATED', 'LOGIN_USER']).to.include(jsonData.data.status));\r\n            if (jsonData.data.status) bru.setVar('status', jsonData.data.status);\r\n            if (jsonData.data.nextStep) bru.setVar('nextStep', jsonData.data.nextStep);\r\n            if (jsonData.data.flow) bru.setVar('flow', jsonData.data.flow);\r\n            if (jsonData.data.maskedIdentifier) bru.setVar('maskedIdentifier', jsonData.data.maskedIdentifier);\r\n        }\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Set new password for user account.
+      - info:
+          name: Reset Password - Verify OTP
+          type: http
+          seq: 2
+        http:
+          method: POST
+          url: '{{baseUrl}}/iam/auth/reset-password/verify-otp'
+          headers:
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: |-
+              {
+                "txnId": "{{txnId}}",
+                "otp": "123456"
+              }
+          auth: inherit
+        runtime:
+          scripts:
+            - type: after-response
+              code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r\nif (res.getStatus() === 200) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        if (jsonData && jsonData.data) {\r\n            if (jsonData.data.txnId) bru.setVar('txnId', jsonData.data.txnId);\r\n            test('Status', () => expect(['OTP_VERIFIED', 'PASSWORD_SETUP_REQUIRED', 'PASSWORD_RESET_REQUIRED', 'LOGIN_USER']).to.include(jsonData.data.status));\r\n            if (jsonData.data.status) bru.setVar('status', jsonData.data.status);\r\n            if (jsonData.data.nextStep) bru.setVar('nextStep', jsonData.data.nextStep);\r\n            if (jsonData.data.flow) bru.setVar('flow', jsonData.data.flow);\r\n            if (jsonData.data.maskedIdentifier) bru.setVar('maskedIdentifier', jsonData.data.maskedIdentifier);\r\n        }\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: 'Verify OTP for password reset. Mock OTP: 123456'
+  - info:
+      name: UI - Login Flow (Active User)
+      type: folder
+      seq: 2
+    request:
+      auth: inherit
+    docs:
+      content: 'UI perspective: existing active user login, token refresh, profile check, and logout.'
+      type: text/markdown
+    items:
+      - info:
+          name: Direct Grant Login - Active User
+          type: http
+          seq: 1
+        http:
+          method: POST
+          url: '{{baseUrl}}/iam/auth/login/direct-grant'
+          headers:
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: |-
+              {
+                "identifier": "samarth.nigam@trigyn.com",
+                "password": "NewPass@123456",
+                "clientId": "diksha-portal"
+              }
+          auth: inherit
+        runtime:
+          scripts:
+            - type: after-response
+              code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r\nif (res.getStatus() === 200) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        if (jsonData && jsonData.data) {\r\n            if (jsonData.data.txnId) bru.setVar('txnId', jsonData.data.txnId);\r\n            test('Status', () => expect(['PASSWORD_RESET_REQUIRED', 'LOGIN_USER']).to.include(jsonData.data.status));\r\n            if (jsonData.data.status) bru.setVar('status', jsonData.data.status);\r\n            if (jsonData.data.nextStep) bru.setVar('nextStep', jsonData.data.nextStep);\r\n            if (jsonData.data.flow) bru.setVar('flow', jsonData.data.flow);\r\n            if (jsonData.data.maskedIdentifier) bru.setVar('maskedIdentifier', jsonData.data.maskedIdentifier);\r\n        }\r\n        var tokens = (jsonData && jsonData.data && jsonData.data.tokens) || (jsonData && jsonData.tokens) || null;\r\n        var user = (jsonData && jsonData.data && jsonData.data.user) || (jsonData && jsonData.user) || null;\r\n        var sessionId = (jsonData && jsonData.data && jsonData.data.sessionId) || (jsonData && jsonData.sessionId) || null;\r\n        if (tokens && tokens.accessToken) bru.setVar('accessToken', tokens.accessToken);\r\n        if (tokens && tokens.refreshToken) bru.setVar('refreshToken', tokens.refreshToken);\r\n        if (user && user.userId) bru.setVar('userId', user.userId);\r\n        if (sessionId) bru.setVar('sessionId', sessionId);\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Direct Grant Flow - Authenticate user with email/phone and password. Returns JWT tokens and session ID.
+      - info:
+          name: Get Current User
+          type: http
+          seq: 3
+        http:
+          method: GET
+          url: '{{baseUrl}}/iam/users/me'
+          headers:
+            - name: Authorization
+              value: Bearer {{accessToken}}
+          auth: inherit
+        runtime:
+          scripts:
+            - type: after-response
+              code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r\nif (res.getStatus() === 200) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        var uid = (jsonData && jsonData.data && jsonData.data.userId) || (jsonData && jsonData.userId) || null;\r\n        if (uid) bru.setVar('userId', uid);\r\n        test('Response body exists', () => expect(jsonData).to.not.equal(undefined));\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Get current authenticated user profile. Requires valid access token.
+      - info:
+          name: Logout
+          type: http
+          seq: 4
+        http:
+          method: POST
+          url: '{{baseUrl}}/iam/auth/logout'
+          headers:
+            - name: Authorization
+              value: Bearer {{accessToken}}
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: '{}'
+          auth: inherit
+        runtime:
+          scripts:
+            - type: after-response
+              code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r\nif (res.getStatus() === 200) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        test('Response body exists', () => expect(jsonData).to.not.equal(undefined));\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Logout user and invalidate session. Clears httpOnly cookie.
+      - info:
+          name: Refresh Token
+          type: http
+          seq: 2
+        http:
+          method: POST
+          url: '{{baseUrl}}/iam/auth/refresh'
+          headers:
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: |-
+              {
+                "refreshToken": "{{refreshToken}}",
+                "clientId": "diksha-portal"
+              }
+          auth: inherit
+        runtime:
+          scripts:
+            - type: after-response
+              code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r\nif (res.getStatus() === 200) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        var tokens = (jsonData && jsonData.data && jsonData.data.tokens) || (jsonData && jsonData.tokens) || null;\r\n        var user = (jsonData && jsonData.data && jsonData.data.user) || (jsonData && jsonData.user) || null;\r\n        var sessionId = (jsonData && jsonData.data && jsonData.data.sessionId) || (jsonData && jsonData.sessionId) || null;\r\n        if (tokens && tokens.accessToken) bru.setVar('accessToken', tokens.accessToken);\r\n        if (tokens && tokens.refreshToken) bru.setVar('refreshToken', tokens.refreshToken);\r\n        if (user && user.userId) bru.setVar('userId', user.userId);\r\n        if (sessionId) bru.setVar('sessionId', sessionId);\r\n        test('Response body exists', () => expect(jsonData).to.not.equal(undefined));\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Refresh access token using refresh token.
+  - info:
+      name: UI - OTP Token Flow
+      type: folder
+      seq: 10
+    request:
+      auth: inherit
+    docs:
+      content: 'UI perspective: mobile OTP login flow that returns session + tokens after OTP verification.'
+      type: text/markdown
+    items:
+      - info:
+          name: OTP Login - Init
+          type: http
+          seq: 1
+        http:
+          method: POST
+          url: '{{baseUrl}}/iam/auth/login/otp-init'
+          headers:
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: |-
+              {
+                "identifier": "9899367094",
+                "clientId": "diksha-mobile"
+              }
+          auth: inherit
+        runtime:
+          scripts:
+            - type: after-response
+              code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r\nif (res.getStatus() === 200) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        var data = (jsonData && jsonData.data) || {};\r\n        if (data.txnId) bru.setVar('txnId', data.txnId);\r\n        if (data.flow) bru.setVar('flow', data.flow);\r\n        if (data.nextStep) bru.setVar('nextStep', data.nextStep);\r\n        if (data.maskedIdentifier) bru.setVar('maskedIdentifier', data.maskedIdentifier);\r\n        test('txnId is present', () => expect(data.txnId).to.not.equal(undefined));\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Initialize OTP login. Sends OTP and returns txnId. Mock OTP is 123456 when USE_MOCK_OTP=true.
+      - info:
+          name: OTP Login - Verify
+          type: http
+          seq: 2
+        http:
+          method: POST
+          url: '{{baseUrl}}/iam/auth/login/otp-verify'
+          headers:
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: |-
+              {
+                "txnId": "{{txnId}}",
+                "otp": "123456",
+                "clientId": "diksha-mobile"
+              }
+          auth: inherit
+        runtime:
+          scripts:
+            - type: after-response
+              code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r\nif (res.getStatus() === 200) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        var data = (jsonData && jsonData.data) || {};\r\n        var tokens = data.tokens || jsonData.tokens || null;\r\n        var user = data.user || jsonData.user || null;\r\n        if (tokens && tokens.accessToken) bru.setVar('accessToken', tokens.accessToken);\r\n        if (tokens && tokens.refreshToken) bru.setVar('refreshToken', tokens.refreshToken);\r\n        if (data.sessionId) bru.setVar('sessionId', data.sessionId);\r\n        if (user && user.userId) bru.setVar('userId', user.userId);\r\n        if (data.flow) bru.setVar('flow', data.flow);\r\n        test('access token is present', () => expect(tokens && tokens.accessToken).to.not.equal(undefined));\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Verify OTP and complete login. Returns tokens and session details.
+      - info:
+          name: OTP Flow - Get Current User
+          type: http
+          seq: 3
+        http:
+          method: GET
+          url: '{{baseUrl}}/iam/users/me'
+          headers:
+            - name: Authorization
+              value: Bearer {{accessToken}}
+          auth: inherit
+        runtime:
+          scripts:
+            - type: after-response
+              code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r\nif (res.getStatus() === 200) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        var uid = (jsonData && jsonData.data && jsonData.data.userId) || (jsonData && jsonData.userId) || null;\r\n        if (uid) bru.setVar('userId', uid);\r\n        test('Response body exists', () => expect(jsonData).to.not.equal(undefined));\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Verify OTP-issued token/session by fetching current user profile.
+  - info:
+      name: 🏢 IAM Core APIs
+      type: folder
+      seq: 7
+    request:
+      auth: inherit
+    docs:
+      content: Core IAM service APIs for user management and system operations
+      type: text/markdown
+    items:
+      - info:
+          name: Create User
+          type: http
+          seq: 1
+        http:
+          method: POST
+          url: '{{iamCoreUrl}}/users'
+          headers:
+            - name: Content-Type
+              value: application/json
+            - name: Authorization
+              value: Bearer {{adminToken}}
+          body:
+            type: json
+            data: |-
+              {
+                "email": "newuser@diksha.local",
+                "phone": "+91234567890",
+                "name": "New User",
+                "activationStatus": "ACTIVE"
+              }
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Create new user in IAM database. Admin operation.
+      - info:
+          name: Delete User
+          type: http
+          seq: 6
+        http:
+          method: DELETE
+          url: '{{iamCoreUrl}}/users/{{userId}}'
+          headers:
+            - name: Authorization
+              value: Bearer {{adminToken}}
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Delete user from IAM database. Admin operation.
+      - info:
+          name: Get All Users
+          type: http
+          seq: 7
+        http:
+          method: GET
+          url: '{{iamCoreUrl}}/users?limit=50&offset=0'
+          headers:
+            - name: Authorization
+              value: Bearer {{adminToken}}
+          params:
+            - name: limit
+              value: '50'
+              type: query
+            - name: offset
+              value: '0'
+              type: query
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Get all users with pagination. Admin operation.
+      - info:
+          name: Get User by External Identity
+          type: http
+          seq: 4
+        http:
+          method: GET
+          url: '{{iamCoreUrl}}/users/external/google/sub/1234567890'
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: |-
+          Looks up a user by an external identity provider ID.
+
+          **Path params:**
+          - `provider`: e.g. `google`
+          - `idtype`: e.g. `sub` (the claim name used as the external ID)
+          - `externalid`: the external provider's user ID value
+        examples:
+          - name: Found
+            request:
+              url: ''
+              method: GET
+            response:
+              status: 200
+              statusText: OK
+              headers:
+                - name: Content-Type
+                  value: application/json
+              body:
+                type: json
+                data: |-
+                  {
+                    "userId": "usr_abc123",
+                    "username": "john_doe",
+                    "email": "john@google.com"
+                  }
+          - name: Not Found
+            request:
+              url: ''
+              method: GET
+            response:
+              status: 404
+              statusText: Not Found
+              headers:
+                - name: Content-Type
+                  value: application/json
+              body:
+                type: json
+                data: |-
+                  {
+                    "error": "User not found"
+                  }
+      - info:
+          name: Get User by Phone / Email / Username
+          type: http
+          seq: 3
+        http:
+          method: GET
+          url: '{{iamCoreUrl}}/users?email=samarth.nigam@trigyn.com'
+          params:
+            - name: email
+              value: samarth.nigam@trigyn.com
+              type: query
+            - name: username
+              value: ''
+              type: query
+              description: Lookup by username
+              disabled: true
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Looks up a user by phone, email, or username query parameter. Use only one at a time.
+        examples:
+          - name: Found
+            request:
+              url: ''
+              method: GET
+            response:
+              status: 200
+              statusText: OK
+              headers:
+                - name: Content-Type
+                  value: application/json
+              body:
+                type: json
+                data: |-
+                  {
+                    "userId": "usr_abc123",
+                    "username": "john_doe",
+                    "phone": "9899367094",
+                    "activationStatus": "ACTIVE"
+                  }
+      - info:
+          name: Get User
+          type: http
+          seq: 2
+        http:
+          method: GET
+          url: '{{iamCoreUrl}}/users/{{userId}}'
+          headers:
+            - name: Authorization
+              value: Bearer {{adminToken}}
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Get user details by ID. Admin operation.
+      - info:
+          name: Update User
+          type: http
+          seq: 5
+        http:
+          method: PATCH
+          url: '{{iamCoreUrl}}/users/{{userId}}'
+          headers:
+            - name: Content-Type
+              value: application/json
+            - name: Authorization
+              value: Bearer {{adminToken}}
+          body:
+            type: json
+            data: |-
+              {
+                "status": 1
+              }
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Update user profile. Admin operation.
+  - info:
+      name: UI - Registration Flow
+      type: folder
+      seq: 1
+    request:
+      auth: inherit
+    docs:
+      content: 'UI perspective: new user registration journey from init to account creation.'
+      type: text/markdown
+    items:
+      - info:
+          name: Registration - Complete
+          type: http
+          seq: 4
+        http:
+          method: POST
+          url: '{{baseUrl}}/iam/auth/register/complete'
+          headers:
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: |-
+              {
+                "txnId": "{{txnId}}",
+                "password": "Test@123456",
+                "confirmPassword": "Test@123456",
+                "termsAccepted": true
+              }
+          auth: inherit
+        runtime:
+          scripts:
+            - type: after-response
+              code: "test('HTTP 201', () => expect(res.getStatus()).to.equal(201));\r\nif (res.getStatus() === 201) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        if (jsonData && jsonData.data) {\r\n            if (jsonData.data.txnId) bru.setVar('txnId', jsonData.data.txnId);\r\n            if (jsonData.data.status) bru.setVar('status', jsonData.data.status);\r\n            if (jsonData.data.nextStep) bru.setVar('nextStep', jsonData.data.nextStep);\r\n            if (jsonData.data.flow) bru.setVar('flow', jsonData.data.flow);\r\n            if (jsonData.data.maskedIdentifier) bru.setVar('maskedIdentifier', jsonData.data.maskedIdentifier);\r\n        }\r\n        var user = (jsonData && jsonData.data && jsonData.data.user) || (jsonData && jsonData.user) || null;\r\n        if (user && user.userId) bru.setVar('newUserId', user.userId);\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Complete registration and create user in IAM DB and Keycloak. Returns user object with nextStep.
+      - info:
+          name: Registration - Init
+          type: http
+          seq: 1
+        http:
+          method: POST
+          url: '{{baseUrl}}/iam/auth/register/init'
+          headers:
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: |-
+              {
+                "identifier": "gageuwotabra-9420@yopmail.com"
+              }
+          auth: inherit
+        runtime:
+          scripts:
+            - type: after-response
+              code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r\nif (res.getStatus() === 200) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        if (jsonData && jsonData.data) {\r\n            if (jsonData.data.txnId) bru.setVar('txnId', jsonData.data.txnId);\r\n            test('Status', () => expect(['OTP_SENT', 'OTP_REQUIRED', 'PASSWORD_RESET_REQUIRED', 'LOGIN_USER']).to.include(jsonData.data.status));\r\n            if (jsonData.data.status) bru.setVar('status', jsonData.data.status);\r\n            if (jsonData.data.nextStep) bru.setVar('nextStep', jsonData.data.nextStep);\r\n            if (jsonData.data.flow) bru.setVar('flow', jsonData.data.flow);\r\n            if (jsonData.data.maskedIdentifier) bru.setVar('maskedIdentifier', jsonData.data.maskedIdentifier);\r\n        }\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Initialize registration flow. Returns transaction ID for OTP flow.
+      - info:
+          name: Registration - Send OTP
+          type: http
+          seq: 2
+        http:
+          method: POST
+          url: '{{baseUrl}}/iam/auth/register/send-otp'
+          headers:
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: |-
+              {
+                "txnId": "{{txnId}}"
+              }
+          auth: inherit
+        runtime:
+          scripts:
+            - type: after-response
+              code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r\nif (res.getStatus() === 200) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        if (jsonData && jsonData.data) {\r\n            if (jsonData.data.txnId) bru.setVar('txnId', jsonData.data.txnId);\r\n            test('Status', () => expect(['OTP_SENT', 'OTP_REQUIRED', 'PASSWORD_RESET_REQUIRED', 'LOGIN_USER']).to.include(jsonData.data.status));\r\n            if (jsonData.data.status) bru.setVar('status', jsonData.data.status);\r\n            if (jsonData.data.nextStep) bru.setVar('nextStep', jsonData.data.nextStep);\r\n            if (jsonData.data.flow) bru.setVar('flow', jsonData.data.flow);\r\n            if (jsonData.data.maskedIdentifier) bru.setVar('maskedIdentifier', jsonData.data.maskedIdentifier);\r\n        }\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: 'Send OTP to user''s email. Use mock OTP code: 123456'
+      - info:
+          name: Registration - Verify OTP
+          type: http
+          seq: 3
+        http:
+          method: POST
+          url: '{{baseUrl}}/iam/auth/register/verify-otp'
+          headers:
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: |-
+              {
+                "txnId": "{{txnId}}",
+                "otp": "123456"
+              }
+          auth: inherit
+        runtime:
+          scripts:
+            - type: after-response
+              code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r\nif (res.getStatus() === 200) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        if (jsonData && jsonData.data) {\r\n            if (jsonData.data.txnId) bru.setVar('txnId', jsonData.data.txnId);\r\n            test('Status', () => expect(['OTP_VERIFIED', 'PASSWORD_SETUP_REQUIRED', 'PASSWORD_RESET_REQUIRED', 'LOGIN_USER']).to.include(jsonData.data.status));\r\n            if (jsonData.data.status) bru.setVar('status', jsonData.data.status);\r\n            if (jsonData.data.nextStep) bru.setVar('nextStep', jsonData.data.nextStep);\r\n            if (jsonData.data.flow) bru.setVar('flow', jsonData.data.flow);\r\n            if (jsonData.data.maskedIdentifier) bru.setVar('maskedIdentifier', jsonData.data.maskedIdentifier);\r\n        }\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: 'Verify OTP code sent to user. Mock OTP: 123456'
+  - info:
+      name: 👤 User Management
+      type: folder
+      seq: 4
+    request:
+      auth: inherit
+    docs:
+      content: User profile and session management endpoints
+      type: text/markdown
+    items:
+      - info:
+          name: Get Current User
+          type: http
+          seq: 1
+        http:
+          method: GET
+          url: '{{baseUrl}}/iam/users/me'
+          headers:
+            - name: Authorization
+              value: Bearer {{accessToken}}
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Get current authenticated user profile. Requires valid access token.
+      - info:
+          name: Get User by ID
+          type: http
+          seq: 2
+        http:
+          method: GET
+          url: '{{baseUrl}}/iam/users/{{userId}}'
+          headers:
+            - name: Authorization
+              value: Bearer {{accessToken}}
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Get user profile by user ID. Requires valid access token.
+      - info:
+          name: Logout
+          type: http
+          seq: 4
+        http:
+          method: POST
+          url: '{{baseUrl}}/iam/auth/logout'
+          headers:
+            - name: Authorization
+              value: Bearer {{accessToken}}
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: '{}'
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Logout user and invalidate session. Clears httpOnly cookie.
+      - info:
+          name: Resolve User
+          type: http
+          seq: 3
+        http:
+          method: POST
+          url: '{{baseUrl}}/iam/users/resolve'
+          headers:
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: |-
+              {
+                "identifier": "testuser@diksha.local"
+              }
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Resolve user by email or phone identifier. Returns user details.
+  - info:
+      name: 🌐 SSO Integration
+      type: folder
+      seq: 6
+    request:
+      auth: inherit
+    docs:
+      content: Social Sign-On endpoints for Google and other providers
+      type: text/markdown
+    items:
+      - info:
+          name: Get SSO Providers
+          type: http
+          seq: 1
+        http:
+          method: GET
+          url: '{{baseUrl}}/iam/sso'
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Get list of configured SSO providers with login URLs.
+      - info:
+          name: SSO Callback - Google
+          type: http
+          seq: 3
+        http:
+          method: GET
+          url: '{{baseUrl}}/iam/sso/google/callback?code=AUTH_CODE&state=STATE'
+          params:
+            - name: code
+              value: AUTH_CODE
+              type: query
+            - name: state
+              value: STATE
+              type: query
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Google OAuth callback endpoint. Handles authorization code and creates/updates user.
+      - info:
+          name: SSO Login - Google
+          type: http
+          seq: 2
+        http:
+          method: GET
+          url: '{{baseUrl}}/iam/sso/google/login'
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Initiate Google SSO login flow. Redirects to Google OAuth consent screen.
+  - info:
+      name: 🏥 System Health & Debugging
+      type: folder
+      seq: 9
+    request:
+      auth: inherit
+    docs:
+      content: Health check and debugging endpoints
+      type: text/markdown
+    items:
+      - info:
+          name: IAM Core Health Check
+          type: http
+          seq: 2
+        http:
+          method: GET
+          url: '{{iamCoreUrl}}/health'
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Check if IAM Core service is running.
+      - info:
+          name: IAM Orchestrator Health Check
+          type: http
+          seq: 1
+        http:
+          method: GET
+          url: '{{baseUrl}}/health'
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Check if IAM Orchestrator service is running.
+  - info:
+      name: 🔑 OTP Service (Non-Mocked)
+      type: folder
+      seq: 5
+    request:
+      auth: inherit
+    docs:
+      content: Non-mocked OTP service endpoints for direct OTP generation and verification
+      type: text/markdown
+    items:
+      - info:
+          name: Generate OTP
+          type: http
+          seq: 1
+        http:
+          method: POST
+          url: '{{baseUrl}}/otp/generate'
+          headers:
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: |-
+              {
+                "identifier": "testuser@diksha.local",
+                "channel": "email",
+                "type": "REGISTRATION"
+              }
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Generate OTP for user (non-mocked service). Sends actual OTP code to email/SMS.
+      - info:
+          name: Verify OTP
+          type: http
+          seq: 2
+        http:
+          method: POST
+          url: '{{baseUrl}}/otp/verify'
+          headers:
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: |-
+              {
+                "identifier": "testuser@diksha.local",
+                "otp": "123456",
+                "type": "REGISTRATION"
+              }
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Verify OTP code sent to user (non-mocked service).
+  - info:
+      name: 🔐 Keycloak Admin API (Debugging)
+      type: folder
+      seq: 8
+    request:
+      auth: inherit
+    docs:
+      content: Keycloak administration endpoints for system debugging and troubleshooting
+      type: text/markdown
+    items:
+      - info:
+          name: Get Keycloak Admin Token
+          type: http
+          seq: 1
+        http:
+          method: POST
+          url: '{{keycloakUrl}}/realms/{{keycloakRealm}}/protocol/openid-connect/token'
+          headers:
+            - name: Content-Type
+              value: application/x-www-form-urlencoded
+          body:
+            type: form-urlencoded
+            data:
+              - name: grant_type
+                value: client_credentials
+              - name: client_id
+                value: iam-admin-client
+              - name: client_secret
+                value: '{{kcAdminSecret}}'
+          auth: inherit
+        runtime:
+          scripts:
+            - type: after-response
+              code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r\nif (res.getStatus() === 200) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        if (jsonData && jsonData.access_token) bru.setVar('kcAdminToken', jsonData.access_token);\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Get admin token from Keycloak for accessing admin APIs.
+      - info:
+          name: Get Keycloak Client Roles
+          type: http
+          seq: 10
+        http:
+          method: GET
+          url: '{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/clients/{{kcClientId}}/roles'
+          headers:
+            - name: Authorization
+              value: Bearer {{kcAdminToken}}
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Get roles defined for a client in Keycloak.
+      - info:
+          name: Get Keycloak Clients
+          type: http
+          seq: 9
+        http:
+          method: GET
+          url: '{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/clients'
+          headers:
+            - name: Authorization
+              value: Bearer {{kcAdminToken}}
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: List all clients configured in Keycloak realm.
+      - info:
+          name: Get Keycloak Realm Info
+          type: http
+          seq: 8
+        http:
+          method: GET
+          url: '{{keycloakUrl}}/admin/realms/{{keycloakRealm}}'
+          headers:
+            - name: Authorization
+              value: Bearer {{kcAdminToken}}
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Get realm information from Keycloak.
+      - info:
+          name: Get Keycloak User Sessions
+          type: http
+          seq: 6
+        http:
+          method: GET
+          url: '{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/users/{{kcUserId}}/sessions'
+          headers:
+            - name: Authorization
+              value: Bearer {{kcAdminToken}}
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Get all active sessions for a user in Keycloak.
+      - info:
+          name: Get Keycloak User
+          type: http
+          seq: 2
+        http:
+          method: GET
+          url: '{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/users/{{kcUserId}}'
+          headers:
+            - name: Authorization
+              value: Bearer {{kcAdminToken}}
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Get user details from Keycloak.
+      - info:
+          name: List Keycloak Users
+          type: http
+          seq: 3
+        http:
+          method: GET
+          url: '{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/users?max=50&first=0'
+          headers:
+            - name: Authorization
+              value: Bearer {{kcAdminToken}}
+          params:
+            - name: max
+              value: '50'
+              type: query
+            - name: first
+              value: '0'
+              type: query
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: List all users in Keycloak realm.
+      - info:
+          name: Logout User from Keycloak
+          type: http
+          seq: 7
+        http:
+          method: POST
+          url: '{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/users/{{kcUserId}}/logout'
+          headers:
+            - name: Authorization
+              value: Bearer {{kcAdminToken}}
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Force logout of user from Keycloak (invalidates all sessions).
+      - info:
+          name: Revoke Keycloak Token
+          type: http
+          seq: 11
+        http:
+          method: POST
+          url: '{{keycloakUrl}}/realms/{{keycloakRealm}}/protocol/openid-connect/revoke'
+          headers:
+            - name: Content-Type
+              value: application/x-www-form-urlencoded
+          body:
+            type: form-urlencoded
+            data:
+              - name: client_id
+                value: diksha-portal
+              - name: token
+                value: '{{refreshToken}}'
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Revoke refresh token on Keycloak.
+      - info:
+          name: Search Keycloak User by Email
+          type: http
+          seq: 4
+        http:
+          method: GET
+          url: '{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/users?email=testuser@diksha.local'
+          headers:
+            - name: Authorization
+              value: Bearer {{kcAdminToken}}
+          params:
+            - name: email
+              value: testuser@diksha.local
+              type: query
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Search user in Keycloak by email address.
+      - info:
+          name: Set Keycloak User Password
+          type: http
+          seq: 5
+        http:
+          method: PUT
+          url: '{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/users/{{kcUserId}}/reset-password'
+          headers:
+            - name: Authorization
+              value: Bearer {{kcAdminToken}}
+            - name: Content-Type
+              value: application/json
+          body:
+            type: json
+            data: |-
+              {
+                "type": "password",
+                "value": "NewPassword@123",
+                "temporary": false
+              }
+          auth: inherit
+        settings:
+          encodeUrl: true
+          timeout: 0
+          followRedirects: true
+          maxRedirects: 5
+        docs: Set password for Keycloak user directly (admin operation).
+request:
+  variables:
+    - name: baseUrl
+      value: https://dev2-learning.diksha.gov.in/iamorchestrator
+    - name: iamCoreUrl
+      value: http://localhost:3000
+    - name: keycloakUrl
+      value: http://localhost:8080
+    - name: keycloakRealm
+      value: diksha-demo
+    - name: accessToken
+      value: ''
+    - name: refreshToken
+      value: ''
+    - name: sessionId
+      value: ''
+    - name: userId
+      value: ''
+    - name: txnId
+      value: ''
+    - name: kcAdminToken
+      value: ''
+    - name: kcAdminSecret
+      value: admin-secret-change-in-production
+    - name: kcUserId
+      value: ''
+    - name: kcClientId
+      value: diksha-portal
+    - name: adminToken
+      value: ''
+    - name: newUserId
+      value: ''
+    - name: status
+      value: ''
+    - name: nextStep
+      value: ''
+    - name: flow
+      value: ''
+    - name: maskedIdentifier
+      value: ''
+  scripts:
+    - type: before-request
+      code: "// Pre-request script for all requests\r\n// Sets up common headers and variables if needed"
+docs:
+  content: |-
+    Comprehensive Postman collection for DIKSHA IAM system including:
+    1. All login and registration flows
+    2. All IAM core APIs
+    3. All non-mocked OTP service APIs
+    4. All Keycloak APIs for debugging
+  type: text/markdown
+bundled: true
+extensions:
+  bruno:
+    ignore:
+      - node_modules
+      - .git
+    exportedAt: '2026-06-02T09:17:41.021Z'
+    exportedUsing: Bruno
