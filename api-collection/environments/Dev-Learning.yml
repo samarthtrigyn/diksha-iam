@@ -1,0 +1,8 @@
+name: Dev-Learning
+variables:
+  - name: baseUrl
+    value: https://dev2-learning.diksha.gov.in/iamorchestrator
+  - name: iamCoreUrl
+    value: https://dev2-learning.diksha.gov.in/iamcore
+  - name: keycloakUrl
+    value: https://dev2-learning.diksha.gov.in/keycloak

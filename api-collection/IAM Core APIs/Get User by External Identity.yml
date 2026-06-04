@@ -1,0 +1,59 @@
+info:
+  name: Get User by External Identity
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: "{{iamCoreUrl}}/users/external/google/sub/1234567890"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: Found
+    request:
+      url: ""
+      method: GET
+    response:
+      status: 200
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "userId": "usr_abc123",
+            "username": "john_doe",
+            "email": "john@google.com"
+          }
+  - name: Not Found
+    request:
+      url: ""
+      method: GET
+    response:
+      status: 404
+      statusText: Not Found
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "User not found"
+          }
+
+docs: |-
+  Looks up a user by an external identity provider ID.
+
+  **Path params:**
+  - `provider`: e.g. `google`
+  - `idtype`: e.g. `sub` (the claim name used as the external ID)
+  - `externalid`: the external provider's user ID value

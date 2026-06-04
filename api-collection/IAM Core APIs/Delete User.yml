@@ -1,0 +1,20 @@
+info:
+  name: Delete User
+  type: http
+  seq: 6
+
+http:
+  method: DELETE
+  url: "{{iamCoreUrl}}/users/{{userId}}"
+  headers:
+    - name: Authorization
+      value: Bearer {{adminToken}}
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: Delete user from IAM database. Admin operation.

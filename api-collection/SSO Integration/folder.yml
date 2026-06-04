@@ -1,0 +1,11 @@
+info:
+  name: SSO Integration
+  type: folder
+  seq: 6
+
+request:
+  auth: inherit
+
+docs:
+  content: Social Sign-On endpoints for Google and other providers
+  type: text/markdown

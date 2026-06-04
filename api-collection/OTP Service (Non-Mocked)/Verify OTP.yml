@@ -1,0 +1,28 @@
+info:
+  name: Verify OTP
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/otp/verify"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "identifier": "testuser@diksha.local",
+        "otp": "123456",
+        "type": "REGISTRATION"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: Verify OTP code sent to user (non-mocked service).

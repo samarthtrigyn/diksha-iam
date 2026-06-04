@@ -1,0 +1,76 @@
+opencollection: 1.0.0
+
+info:
+  name: DIKSHA IAM - Complete API Collection
+config:
+  proxy:
+    inherit: true
+    config:
+      protocol: http
+      hostname: ""
+      port: ""
+      auth:
+        username: ""
+        password: ""
+      bypassProxy: ""
+
+request:
+  variables:
+    - name: baseUrl
+      value: https://dev2-learning.diksha.gov.in/iamorchestrator
+    - name: iamCoreUrl
+      value: http://localhost:3000
+    - name: keycloakUrl
+      value: http://localhost:8080
+    - name: keycloakRealm
+      value: diksha-demo
+    - name: accessToken
+      value: ""
+    - name: refreshToken
+      value: ""
+    - name: sessionId
+      value: ""
+    - name: userId
+      value: ""
+    - name: txnId
+      value: ""
+    - name: kcAdminToken
+      value: ""
+    - name: kcAdminSecret
+      value: admin-secret-change-in-production
+    - name: kcUserId
+      value: ""
+    - name: kcClientId
+      value: diksha-portal
+    - name: adminToken
+      value: ""
+    - name: newUserId
+      value: ""
+    - name: status
+      value: ""
+    - name: nextStep
+      value: ""
+    - name: flow
+      value: ""
+    - name: maskedIdentifier
+      value: ""
+  scripts:
+    - type: before-request
+      code: "// Pre-request script for all requests\r
+
+        // Sets up common headers and variables if needed"
+
+docs:
+  content: |-
+    Comprehensive Postman collection for DIKSHA IAM system including:
+    1. All login and registration flows
+    2. All IAM core APIs
+    3. All non-mocked OTP service APIs
+    4. All Keycloak APIs for debugging
+  type: text/markdown
+bundled: false
+extensions:
+  bruno:
+    ignore:
+      - node_modules
+      - .git

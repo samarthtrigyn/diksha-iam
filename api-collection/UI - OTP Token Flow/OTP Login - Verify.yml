@@ -1,0 +1,65 @@
+info:
+  name: OTP Login - Verify
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/iam/auth/login/otp-verify"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "txnId": "{{txnId}}",
+        "otp": "123456",
+        "clientId": "diksha-portal"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r
+
+        if (res.getStatus() === 200) {\r
+
+        \    try {\r
+
+        \        var jsonData = res.getBody();\r
+
+        \        var data = (jsonData && jsonData.data) || {};\r
+
+        \        var tokens = data.tokens || jsonData.tokens || null;\r
+
+        \        var user = data.user || jsonData.user || null;\r
+
+        \        if (tokens && tokens.accessToken) bru.setVar('accessToken', tokens.accessToken);\r
+
+        \        if (tokens && tokens.refreshToken) bru.setVar('refreshToken', tokens.refreshToken);\r
+
+        \        if (data.sessionId) bru.setVar('sessionId', data.sessionId);\r
+
+        \        if (user && user.userId) bru.setVar('userId', user.userId);\r
+
+        \        if (data.flow) bru.setVar('flow', data.flow);\r
+
+        \        test('access token is present', () => expect(tokens && tokens.accessToken).to.not.equal(undefined));\r
+
+        \    } catch (err) {\r
+
+        \        console.log('Error parsing response:', err);\r
+
+        \    }\r
+
+        }"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: Verify OTP and complete login. Returns tokens and session details.

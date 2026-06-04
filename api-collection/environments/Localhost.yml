@@ -1,0 +1,6 @@
+name: Localhost
+variables:
+  - name: baseUrl
+    value: http://localhost:4000
+  - name: iamCoreUrl
+    value: http://localhost:3000

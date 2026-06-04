@@ -1,0 +1,11 @@
+info:
+  name: 🏢 IAM Core APIs
+  type: folder
+  seq: 7
+
+request:
+  auth: inherit
+
+docs:
+  content: Core IAM service APIs for user management and system operations
+  type: text/markdown

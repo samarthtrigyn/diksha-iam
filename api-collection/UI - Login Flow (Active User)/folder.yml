@@ -1,0 +1,11 @@
+info:
+  name: UI - Login Flow (Active User)
+  type: folder
+  seq: 2
+
+request:
+  auth: inherit
+
+docs:
+  content: "UI perspective: existing active user login, token refresh, profile check, and logout."
+  type: text/markdown

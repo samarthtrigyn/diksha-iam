@@ -1,0 +1,11 @@
+info:
+  name: UI - Login Flow (First Time User)
+  type: folder
+  seq: 3
+
+request:
+  auth: inherit
+
+docs:
+  content: "UI perspective: legacy user already in Cassandra but not in upgraded Keycloak; bootstrap via direct grant, OTP verify, password setup, then login."
+  type: text/markdown

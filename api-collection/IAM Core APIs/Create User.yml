@@ -1,0 +1,31 @@
+info:
+  name: Create User
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{iamCoreUrl}}/users"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: Authorization
+      value: Bearer {{adminToken}}
+  body:
+    type: json
+    data: |-
+      {
+        "email": "newuser@diksha.local",
+        "phone": "+91234567890",
+        "name": "New User",
+        "activationStatus": "ACTIVE"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: Create new user in IAM database. Admin operation.

@@ -1,0 +1,11 @@
+info:
+  name: UI - Registration Flow
+  type: folder
+  seq: 1
+
+request:
+  auth: inherit
+
+docs:
+  content: "UI perspective: new user registration journey from init to account creation."
+  type: text/markdown

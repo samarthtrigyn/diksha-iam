@@ -1,0 +1,61 @@
+info:
+  name: Registration - Send OTP
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/iam/auth/register/send-otp"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "txnId": "{{txnId}}"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r
+
+        if (res.getStatus() === 200) {\r
+
+        \    try {\r
+
+        \        var jsonData = res.getBody();\r
+
+        \        if (jsonData && jsonData.data) {\r
+
+        \            if (jsonData.data.txnId) bru.setVar('txnId', jsonData.data.txnId);\r
+
+        \            test('Status', () => expect(['OTP_SENT', 'OTP_REQUIRED', 'PASSWORD_RESET_REQUIRED', 'LOGIN_USER']).to.include(jsonData.data.status));\r
+
+        \            if (jsonData.data.status) bru.setVar('status', jsonData.data.status);\r
+
+        \            if (jsonData.data.nextStep) bru.setVar('nextStep', jsonData.data.nextStep);\r
+
+        \            if (jsonData.data.flow) bru.setVar('flow', jsonData.data.flow);\r
+
+        \            if (jsonData.data.maskedIdentifier) bru.setVar('maskedIdentifier', jsonData.data.maskedIdentifier);\r
+
+        \        }\r
+
+        \    } catch (err) {\r
+
+        \        console.log('Error parsing response:', err);\r
+
+        \    }\r
+
+        }"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: "Send OTP to user's email. Use mock OTP code: 123456"

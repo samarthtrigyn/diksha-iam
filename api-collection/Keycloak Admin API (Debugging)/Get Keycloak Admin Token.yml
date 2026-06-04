@@ -1,0 +1,50 @@
+info:
+  name: Get Keycloak Admin Token
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{keycloakUrl}}/realms/{{keycloakRealm}}/protocol/openid-connect/token"
+  headers:
+    - name: Content-Type
+      value: application/x-www-form-urlencoded
+  body:
+    type: form-urlencoded
+    data:
+      - name: grant_type
+        value: client_credentials
+      - name: client_id
+        value: iam-admin-client
+      - name: client_secret
+        value: "{{kcAdminSecret}}"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r
+
+        if (res.getStatus() === 200) {\r
+
+        \    try {\r
+
+        \        var jsonData = res.getBody();\r
+
+        \        if (jsonData && jsonData.access_token) bru.setVar('kcAdminToken', jsonData.access_token);\r
+
+        \    } catch (err) {\r
+
+        \        console.log('Error parsing response:', err);\r
+
+        \    }\r
+
+        }"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: Get admin token from Keycloak for accessing admin APIs.

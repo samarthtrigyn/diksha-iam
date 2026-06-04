@@ -1,0 +1,27 @@
+info:
+  name: Revoke Keycloak Token
+  type: http
+  seq: 11
+
+http:
+  method: POST
+  url: "{{keycloakUrl}}/realms/{{keycloakRealm}}/protocol/openid-connect/revoke"
+  headers:
+    - name: Content-Type
+      value: application/x-www-form-urlencoded
+  body:
+    type: form-urlencoded
+    data:
+      - name: client_id
+        value: diksha-portal
+      - name: token
+        value: "{{refreshToken}}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: Revoke refresh token on Keycloak.

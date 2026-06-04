@@ -1,0 +1,58 @@
+info:
+  name: OTP Login - Init
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/iam/auth/login/otp-init"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "identifier": "9899367094",
+        "clientId": "diksha-portal"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r
+
+        if (res.getStatus() === 200) {\r
+
+        \    try {\r
+
+        \        var jsonData = res.getBody();\r
+
+        \        var data = (jsonData && jsonData.data) || {};\r
+
+        \        if (data.txnId) bru.setVar('txnId', data.txnId);\r
+
+        \        if (data.flow) bru.setVar('flow', data.flow);\r
+
+        \        if (data.nextStep) bru.setVar('nextStep', data.nextStep);\r
+
+        \        if (data.maskedIdentifier) bru.setVar('maskedIdentifier', data.maskedIdentifier);\r
+
+        \        test('txnId is present', () => expect(data.txnId).to.not.equal(undefined));\r
+
+        \    } catch (err) {\r
+
+        \        console.log('Error parsing response:', err);\r
+
+        \    }\r
+
+        }"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: Initialize OTP login. Sends OTP and returns txnId. Mock OTP is 123456 when USE_MOCK_OTP=true.

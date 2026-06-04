@@ -1,0 +1,28 @@
+info:
+  name: Generate OTP
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/otp/generate"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "identifier": "testuser@diksha.local",
+        "channel": "email",
+        "type": "REGISTRATION"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: Generate OTP for user (non-mocked service). Sends actual OTP code to email/SMS.

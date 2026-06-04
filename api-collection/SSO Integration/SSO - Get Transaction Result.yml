@@ -1,0 +1,65 @@
+info:
+  name: SSO - Get Transaction Result
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: "{{baseUrl}}/iam/sso/txn/{{txnId}}/result"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r\nif (res.getStatus() === 200) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        var data = (jsonData && jsonData.data) || {};\r\n        test('status is present', () => expect(data.status).to.not.equal(undefined));\r\n        test('status is valid', () => expect(['SUCCESS', 'ERROR', 'CONFLICT']).to.include(data.status));\r\n        if (data.status === 'SUCCESS') {\r\n            test('user is present on success', () => expect(data.user).to.not.equal(undefined));\r\n            if (data.sessionId) bru.setVar('sessionId', data.sessionId);\r\n            if (data.user && data.user.id) bru.setVar('userId', data.user.id);\r\n            if (data.username) bru.setVar('username', data.username);\r\n        } else if (data.status === 'ERROR') {\r\n            test('errorCode is present on error', () => expect(data.errorCode).to.not.equal(undefined));\r\n        } else if (data.status === 'CONFLICT') {\r\n            test('conflict is present on conflict', () => expect(data.conflict).to.not.equal(undefined));\r\n        }\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Retrieve the full result of an SSO transaction after the callback redirect.
+
+  Call this endpoint after the frontend receives a redirect from the SSO callback with a `txnId` query param.
+
+  **Response by status:**
+
+  `SUCCESS`:
+  ```json
+  {
+    "status": "SUCCESS",
+    "txnId": "...",
+    "provider": "google",
+    "user": { "id": "...", "username": "...", "email": "..." },
+    "sessionId": "...",
+    "username": "..."
+  }
+  ```
+
+  `ERROR`:
+  ```json
+  {
+    "status": "ERROR",
+    "txnId": "...",
+    "provider": "google",
+    "errorCode": "token_exchange_failed",
+    "errorDescription": "Token exchange failed"
+  }
+  ```
+
+  `CONFLICT`:
+  ```json
+  {
+    "status": "CONFLICT",
+    "txnId": "...",
+    "provider": "google",
+    "conflict": { "reason": "...", ... },
+    "conflictReason": "USER_ACTION_CONFLICT"
+  }
+  ```
+
+  **Error responses:**
+  - `404 txn_not_found` — transaction expired or not found
+  - `400 invalid_request` — missing txnId

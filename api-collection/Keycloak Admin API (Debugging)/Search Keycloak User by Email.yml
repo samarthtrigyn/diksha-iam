@@ -1,0 +1,24 @@
+info:
+  name: Search Keycloak User by Email
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: "{{keycloakUrl}}/admin/realms/{{keycloakRealm}}/users?email=testuser@diksha.local"
+  headers:
+    - name: Authorization
+      value: Bearer {{kcAdminToken}}
+  params:
+    - name: email
+      value: testuser@diksha.local
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: Search user in Keycloak by email address.

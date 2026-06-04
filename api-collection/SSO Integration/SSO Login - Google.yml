@@ -1,0 +1,31 @@
+info:
+  name: SSO Login - Google
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: "{{baseUrl}}/iam/sso/google/login"
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r\nif (res.getStatus() === 200) {\r\n    try {\r\n        var jsonData = res.getBody();\r\n        var data = (jsonData && jsonData.data) || {};\r\n        if (data.txnId) bru.setVar('txnId', data.txnId);\r\n        if (data.flow) bru.setVar('flow', data.flow);\r\n        if (data.provider) bru.setVar('ssoProvider', data.provider);\r\n        if (data.authUrl) bru.setVar('authUrl', data.authUrl);\r\n        if (data.state) bru.setVar('ssoState', data.state);\r\n        test('txnId is present', () => expect(data.txnId).to.not.equal(undefined));\r\n        test('authUrl is present', () => expect(data.authUrl).to.not.equal(undefined));\r\n        test('flow is SSO_LOGIN', () => expect(data.flow).to.equal('SSO_LOGIN'));\r\n    } catch (err) {\r\n        console.log('Error parsing response:', err);\r\n    }\r\n}"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: |-
+  Initiate Google SSO login flow. Returns JSON with authUrl to redirect user to Google OAuth consent screen.
+
+  **Response fields:**
+  - `flow` — always `SSO_LOGIN`
+  - `txnId` — transaction ID; store this to call GET /iam/sso/txn/:txnId/result after callback
+  - `nextStep` — `REDIRECT_TO_PROVIDER`
+  - `provider` — `google`
+  - `authUrl` — redirect the user to this URL
+  - `state` — OAuth state parameter (handled server-side)

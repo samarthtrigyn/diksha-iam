@@ -1,0 +1,62 @@
+info:
+  name: Refresh Token
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{baseUrl}}/iam/auth/refresh"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "refreshToken": "{{refreshToken}}",
+        "clientId": "diksha-portal"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r
+
+        if (res.getStatus() === 200) {\r
+
+        \    try {\r
+
+        \        var jsonData = res.getBody();\r
+
+        \        var tokens = (jsonData && jsonData.data && jsonData.data.tokens) || (jsonData && jsonData.tokens) || null;\r
+
+        \        var user = (jsonData && jsonData.data && jsonData.data.user) || (jsonData && jsonData.user) || null;\r
+
+        \        var sessionId = (jsonData && jsonData.data && jsonData.data.sessionId) || (jsonData && jsonData.sessionId) || null;\r
+
+        \        if (tokens && tokens.accessToken) bru.setVar('accessToken', tokens.accessToken);\r
+
+        \        if (tokens && tokens.refreshToken) bru.setVar('refreshToken', tokens.refreshToken);\r
+
+        \        if (user && user.userId) bru.setVar('userId', user.userId);\r
+
+        \        if (sessionId) bru.setVar('sessionId', sessionId);\r
+
+        \        test('Response body exists', () => expect(jsonData).to.not.equal(undefined));\r
+
+        \    } catch (err) {\r
+
+        \        console.log('Error parsing response:', err);\r
+
+        \    }\r
+
+        }"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: Refresh access token using refresh token.

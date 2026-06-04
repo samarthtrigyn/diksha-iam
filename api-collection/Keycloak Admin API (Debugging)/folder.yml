@@ -1,0 +1,11 @@
+info:
+  name: Keycloak Admin API (Debugging)
+  type: folder
+  seq: 8
+
+request:
+  auth: inherit
+
+docs:
+  content: Keycloak administration endpoints for system debugging and troubleshooting
+  type: text/markdown

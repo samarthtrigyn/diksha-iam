@@ -1,0 +1,26 @@
+info:
+  name: Resolve User
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{baseUrl}}/iam/users/resolve"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "identifier": "testuser@diksha.local"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: Resolve user by email or phone identifier. Returns user details.

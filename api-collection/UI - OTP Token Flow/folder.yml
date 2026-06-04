@@ -1,0 +1,11 @@
+info:
+  name: UI - OTP Token Flow
+  type: folder
+  seq: 10
+
+request:
+  auth: inherit
+
+docs:
+  content: "UI perspective: mobile OTP login flow that returns session + tokens after OTP verification."
+  type: text/markdown

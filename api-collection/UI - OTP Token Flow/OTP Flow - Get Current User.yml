@@ -1,0 +1,45 @@
+info:
+  name: OTP Flow - Get Current User
+  type: http
+  seq: 3
+
+http:
+  method: GET
+  url: "{{baseUrl}}/iam/users/me"
+  headers:
+    - name: Authorization
+      value: Bearer {{accessToken}}
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: "test('HTTP 200', () => expect(res.getStatus()).to.equal(200));\r
+
+        if (res.getStatus() === 200) {\r
+
+        \    try {\r
+
+        \        var jsonData = res.getBody();\r
+
+        \        var uid = (jsonData && jsonData.data && jsonData.data.userId) || (jsonData && jsonData.userId) || null;\r
+
+        \        if (uid) bru.setVar('userId', uid);\r
+
+        \        test('Response body exists', () => expect(jsonData).to.not.equal(undefined));\r
+
+        \    } catch (err) {\r
+
+        \        console.log('Error parsing response:', err);\r
+
+        \    }\r
+
+        }"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+docs: Verify OTP-issued token/session by fetching current user profile.
